@@ -10,6 +10,8 @@ import SwiftUI
 import AVFoundation
 
 struct CameraFrame: View {
+    @EnvironmentObject var detectionState: DetectionState
+    
     var body: some View {
         NavigationStack {
             VStack {
@@ -23,9 +25,14 @@ struct CameraFrame: View {
                     }
                     Spacer()
                     
-                    Text("Object")
-                        .font(.custom("times", size: 50))
-                        .foregroundStyle(Color(red: (241/255), green: (246/255), blue: (255/255)))
+                    VStack {
+                        
+                        Text(detectionState.currentDetectionText)
+                            .font(.custom("times", size: 30))
+                            .foregroundStyle(Color(red: (241/255), green: (246/255), blue: (255/255)))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                    }
                     Spacer()
                     
                 }
@@ -39,7 +46,7 @@ struct CameraFrame: View {
                     
                     // Camera view with frame
                     VStack {
-                        CameraView()
+                        CameraView(detectionState: detectionState)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                             .overlay(
@@ -50,6 +57,8 @@ struct CameraFrame: View {
                     }
                     .padding()
                 }
+                
+                
             }
         .frame(maxWidth: .infinity , maxHeight: .infinity)
     }
@@ -59,4 +68,5 @@ struct CameraFrame: View {
 
 #Preview {
     CameraFrame()
+        .environmentObject(DetectionState())
 }

@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct BatSightApp: App {
+    @StateObject private var detectionState = DetectionState()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(detectionState)
         }
     }
 }

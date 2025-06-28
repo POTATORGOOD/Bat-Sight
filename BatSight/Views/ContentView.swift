@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var detectionState: DetectionState
+    
     var body: some View {
         NavigationStack {
             VStack {
@@ -29,4 +31,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environmentObject(DetectionState())
 }
