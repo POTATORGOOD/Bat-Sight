@@ -23,10 +23,11 @@ struct CameraFrame: View {
                             .resizable()
                             .frame(width: 75, height: 75)
                     }
+                    .padding(.leading, 10)
+                    
                     Spacer()
                     
                     VStack {
-                        
                         Text(detectionState.currentDetectionText)
                             .font(.custom("times", size: 30))
                             .foregroundStyle(Color(red: (241/255), green: (246/255), blue: (255/255)))
@@ -35,6 +36,18 @@ struct CameraFrame: View {
                     }
                     Spacer()
                     
+                    // Speech toggle button
+                    Button(action: {
+                        detectionState.toggleSpeech()
+                    }) {
+                        Image(systemName: detectionState.speechEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                            .font(.title2)
+                            .foregroundColor(detectionState.speechEnabled ? .green : .red)
+                            .frame(width: 44, height: 44)
+                            .background(Color.white.opacity(0.2))
+                            .clipShape(Circle())
+                    }
+                    .padding(.trailing, 10)
                 }
                 .frame(maxWidth: .infinity , maxHeight: 75)
                 .background(Color(red: (45/255), green: (5/255), blue: (102/255)))
@@ -63,6 +76,14 @@ struct CameraFrame: View {
         .frame(maxWidth: .infinity , maxHeight: .infinity)
     }
     .navigationBarBackButtonHidden(true)
+    .onAppear {
+        // Announce camera mode activation (always announce navigation events)
+        detectionState.announceCameraModeActivated()
+    }
+    .onDisappear {
+        // Announce camera mode deactivation (always announce navigation events)
+        detectionState.announceCameraModeDeactivated()
+    }
     }
 }
 

@@ -235,6 +235,15 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
     }
     
     private func performCoreMLObjectDetection(pixelBuffer: CVPixelBuffer) {
+        // Quick check for significant objects before doing expensive Core ML processing
+        guard DirectionCalculator.hasSignificantObjects(pixelBuffer: pixelBuffer) else {
+            // No significant objects detected, clear detections
+            DispatchQueue.main.async {
+                self.detectionState.updateDetections([])
+            }
+            return
+        }
+        
         // Use classification with custom position detection
         let classificationRequest = VNClassifyImageRequest { [weak self] request, error in
             guard let self = self else { return }
@@ -275,11 +284,12 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
             
             // Create detected objects with position based on image analysis
             let detectedObjects: [DetectedObject] = finalResults.compactMap { classification in
-                // Get custom position from our detection method
-                let customPosition = self.determineObjectPosition(from: pixelBuffer)
+                // Get custom position from DirectionCalculator
+                let customPosition = DirectionCalculator.determineObjectPosition(from: pixelBuffer)
                 
-                // Check if object is too far away (too small in frame)
-                if self.isObjectTooFarAway(pixelBuffer: pixelBuffer, position: customPosition) {
+                // Check if object is too far away using DirectionCalculator with configurable filtering
+                // Using veryClose filtering to only detect objects within a few feet
+                if DirectionCalculator.isObjectTooFarAway(pixelBuffer: pixelBuffer, position: customPosition, config: .veryClose) {
                     print("Object filtered out - too far away")
                     return nil
                 }
@@ -315,194 +325,6 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
                 print("Failed to perform Core ML request: \(error)")
             }
         }
-    }
-    
-    private func determineObjectPosition(from pixelBuffer: CVPixelBuffer) -> String {
-        // Real position detection based on image analysis
-        // Analyze the image to determine where objects are actually located
-        
-        let width = CVPixelBufferGetWidth(pixelBuffer)
-        let height = CVPixelBufferGetHeight(pixelBuffer)
-        
-        // Lock the pixel buffer for reading
-        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
-        defer {
-            CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
-        }
-        
-        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
-            return "Center"
-        }
-        
-        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
-        let buffer = baseAddress.assumingMemoryBound(to: UInt8.self)
-        
-        // Analyze different regions of the image to detect objects
-        let leftRegion = analyzeImageRegion(buffer: buffer, bytesPerRow: bytesPerRow, width: width, height: height, region: .left)
-        let centerRegion = analyzeImageRegion(buffer: buffer, bytesPerRow: bytesPerRow, width: width, height: height, region: .center)
-        let rightRegion = analyzeImageRegion(buffer: buffer, bytesPerRow: bytesPerRow, width: width, height: height, region: .right)
-        
-        // Print debug info
-        print("Region analysis - Left: \(leftRegion), Center: \(centerRegion), Right: \(rightRegion)")
-        
-        // Find the region with the highest activity
-        // Fix the region mapping based on user feedback
-        let regions = [
-            ("Center", leftRegion),   // Left region maps to Center position
-            ("Left", centerRegion),   // Center region maps to Left position  
-            ("Right", rightRegion)    // Right region maps to Right position
-        ]
-        
-        // Use a threshold to avoid false positives
-        let maxActivity = regions.map { $0.1 }.max() ?? 0
-        let threshold = maxActivity * 0.8 // Only consider regions with 80% of max activity
-        
-        let activeRegions = regions.filter { $0.1 >= threshold }
-        
-        if activeRegions.isEmpty {
-            return "Center"
-        } else if activeRegions.count == 1 {
-            return activeRegions[0].0
-        } else {
-            // If multiple regions are active, return the one with highest activity
-            return activeRegions.max { $0.1 < $1.1 }?.0 ?? "Center"
-        }
-    }
-    
-    private enum ImageRegion {
-        case left, center, right
-    }
-    
-    private func analyzeImageRegion(buffer: UnsafePointer<UInt8>, bytesPerRow: Int, width: Int, height: Int, region: ImageRegion) -> Double {
-        // Calculate region boundaries - ensure proper mapping
-        let regionWidth = width / 3
-        let startX: Int
-        let endX: Int
-        
-        switch region {
-        case .left:
-            startX = 0
-            endX = regionWidth
-        case .center:
-            startX = regionWidth
-            endX = regionWidth * 2
-        case .right:
-            startX = regionWidth * 2
-            endX = width
-        }
-        
-        // Debug: print region boundaries
-        print("\(region) region: x=\(startX) to x=\(endX) (width=\(width))")
-        
-        var totalActivity = 0.0
-        var pixelCount = 0
-        
-        // Sample pixels in the region to detect activity
-        for y in stride(from: height / 4, to: height * 3 / 4, by: 8) { // Focus on center area, sample every 8th pixel
-            for x in stride(from: startX, to: endX, by: 8) {
-                let pixelIndex = y * bytesPerRow + x * 4 // BGRA format
-                
-                if pixelIndex + 2 < bytesPerRow * height {
-                    let red = Double(buffer[pixelIndex + 2])
-                    let green = Double(buffer[pixelIndex + 1])
-                    let blue = Double(buffer[pixelIndex])
-                    
-                    // Calculate edge detection (more sensitive to object boundaries)
-                    let edgeStrength = abs(red - green) + abs(green - blue) + abs(blue - red)
-                    
-                    // Only count pixels with significant edge strength
-                    if edgeStrength > 30 {
-                        totalActivity += edgeStrength
-                        pixelCount += 1
-                    }
-                }
-            }
-        }
-        
-        return pixelCount > 0 ? totalActivity / Double(pixelCount) : 0.0
-    }
-    
-    private func isObjectTooFarAway(pixelBuffer: CVPixelBuffer, position: String) -> Bool {
-        // Lock the pixel buffer for reading
-        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
-        defer {
-            CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
-        }
-        
-        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
-            return true // Assume too far if we can't access the buffer
-        }
-        
-        let width = CVPixelBufferGetWidth(pixelBuffer)
-        let height = CVPixelBufferGetHeight(pixelBuffer)
-        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
-        let buffer = baseAddress.assumingMemoryBound(to: UInt8.self)
-        
-        // Define the region to analyze based on position
-        let regionWidth = width / 3
-        let startX: Int
-        let endX: Int
-        
-        switch position {
-        case "Left":
-            startX = 0
-            endX = regionWidth
-        case "Center":
-            startX = regionWidth
-            endX = regionWidth * 2
-        case "Right":
-            startX = regionWidth * 2
-            endX = width
-        default:
-            return true
-        }
-        
-        // Calculate object size by counting significant pixels in the region
-        var significantPixels = 0
-        var totalPixels = 0
-        var maxEdgeStrength = 0.0
-        
-        // Sample pixels in the region - use smaller step for more detailed analysis
-        for y in stride(from: height / 4, to: height * 3 / 4, by: 4) {
-            for x in stride(from: startX, to: endX, by: 4) {
-                let pixelIndex = y * bytesPerRow + x * 4
-                
-                if pixelIndex + 2 < bytesPerRow * height {
-                    let red = Double(buffer[pixelIndex + 2])
-                    let green = Double(buffer[pixelIndex + 1])
-                    let blue = Double(buffer[pixelIndex])
-                    
-                    // Calculate edge strength
-                    let edgeStrength = abs(red - green) + abs(green - blue) + abs(blue - red)
-                    maxEdgeStrength = max(maxEdgeStrength, edgeStrength)
-                    
-                    totalPixels += 1
-                    if edgeStrength > 30 { // Lower threshold for significant edges
-                        significantPixels += 1
-                    }
-                }
-            }
-        }
-        
-        // Calculate the percentage of significant pixels (object density)
-        let objectDensity = totalPixels > 0 ? Double(significantPixels) / Double(totalPixels) : 0.0
-        
-        print("Object density at \(position): \(objectDensity), max edge strength: \(maxEdgeStrength)")
-        
-        // Less aggressive distance filtering - only filter out very far objects
-        let densityThreshold = 0.02 // Only 2% of pixels need to be significant
-        let edgeStrengthThreshold = 50.0 // Lower edge strength threshold
-        
-        let isTooFarByDensity = objectDensity < densityThreshold
-        let isTooFarByEdgeStrength = maxEdgeStrength < edgeStrengthThreshold
-        
-        let isTooFar = isTooFarByDensity && isTooFarByEdgeStrength // Use AND instead of OR
-        
-        if isTooFar {
-            print("Object at \(position) filtered out - density: \(objectDensity) < \(densityThreshold) AND edge strength: \(maxEdgeStrength) < \(edgeStrengthThreshold)")
-        }
-        
-        return isTooFar
     }
 }
 
