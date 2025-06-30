@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import AVFoundation
 
+// Camera interface wrapper that provides navigation controls, detection display, and speech toggle with audio feedback
 struct CameraFrame: View {
     @EnvironmentObject var detectionState: DetectionState
     

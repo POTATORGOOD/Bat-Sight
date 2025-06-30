@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-// Shared state for detected objects across the app
+// Central state manager that handles object detection updates, speech announcements, and UI state
 class DetectionState: ObservableObject {
     @Published var detectedObjects: [DetectedObject] = []
     @Published var currentDetectionText: String = "No objects detected"
@@ -20,6 +20,7 @@ class DetectionState: ObservableObject {
     // Track previous state to avoid duplicate announcements
     private var previousObjects: [DetectedObject] = []
     
+    // Updates the current detection state and triggers speech announcements if objects change significantly
     func updateDetections(_ objects: [DetectedObject]) {
         detectedObjects = objects
         
@@ -42,27 +43,23 @@ class DetectionState: ObservableObject {
         previousObjects = objects
     }
     
-    /// Announces new detections with speech feedback
+    // Announces new detections with speech feedback, but only when there are meaningful changes
     private func announceNewDetections(_ objects: [DetectedObject]) {
         // Don't announce anything if no objects are detected
         if objects.isEmpty {
             return
         }
         
-        // If this is the first detection or objects have changed significantly
-        if previousObjects.isEmpty || hasSignificantChange(objects) {
-            if objects.count == 1 {
-                // Single object - announce with details
-                let object = objects[0]
-                speechManager.announceObject(object.identifier, position: object.position, confidence: object.confidence)
-            } else {
-                // Multiple objects - announce summary
-                speechManager.announceMultipleObjects(objects)
+                    // If this is the first detection or objects have changed significantly
+            if previousObjects.isEmpty || hasSignificantChange(objects) {
+                // Always announce single object with details (since we only detect one now)
+                if let object = objects.first {
+                    speechManager.announceObject(object.identifier, position: object.position, confidence: object.confidence)
+                }
             }
-        }
     }
     
-    /// Checks if the detection has changed significantly enough to warrant a new announcement
+    // Checks if the detection has changed significantly enough to warrant a new announcement
     private func hasSignificantChange(_ newObjects: [DetectedObject]) -> Bool {
         // If number of objects changed
         if newObjects.count != previousObjects.count {
@@ -93,17 +90,17 @@ class DetectionState: ObservableObject {
         return false
     }
     
-    /// Stops any current speech
+    // Stops any current speech
     func stopSpeech() {
         speechManager.stopSpeaking()
     }
     
-    /// Checks if speech is currently playing
+    // Checks if speech is currently playing
     var isSpeaking: Bool {
         return speechManager.isCurrentlySpeaking
     }
     
-    /// Toggles speech on/off
+    // Toggles speech on/off and announces the change
     func toggleSpeech() {
         speechEnabled.toggle()
         if !speechEnabled {
@@ -116,20 +113,20 @@ class DetectionState: ObservableObject {
         }
     }
     
-    /// Announces camera mode activation
+    // Announces camera mode activation (always announces navigation events, regardless of speech enabled setting)
     func announceCameraModeActivated() {
         // Always announce navigation events, regardless of speech enabled setting
         speechManager.announceCameraModeActivated()
     }
     
-    /// Announces camera mode deactivation
+    // Announces camera mode deactivation (always announces navigation events, regardless of speech enabled setting)
     func announceCameraModeDeactivated() {
         // Always announce navigation events, regardless of speech enabled setting
         speechManager.announceCameraModeDeactivated()
     }
 }
 
-// Simple struct to hold detection results
+// Data structure that holds information about a detected object including its type, confidence, position, and location
 struct DetectedObject {
     let identifier: String
     let confidence: Float
@@ -142,15 +139,23 @@ struct DetectedObject {
         self.boundingBox = boundingBox
         
         // Calculate relative position based on bounding box center
-        // Larger left/right zones, smaller center zone
+        // Using YOLOv8-style positioning with 33% zones
         let centerX = boundingBox.midX
         
-        if centerX < 0.49 {
+        if centerX < 0.33 {
             self.position = "Left"
-        } else if centerX > 0.51 {
+        } else if centerX > 0.67 {
             self.position = "Right"
         } else {
             self.position = "Center"
         }
+    }
+    
+    // Convenience initializer from YOLOv8Detection
+    init(from yoloDetection: YOLOv8Detection) {
+        self.identifier = yoloDetection.identifier
+        self.confidence = yoloDetection.confidence
+        self.position = yoloDetection.position
+        self.boundingBox = yoloDetection.boundingBox
     }
 }

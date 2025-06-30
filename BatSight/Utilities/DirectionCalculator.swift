@@ -9,11 +9,12 @@ import Foundation
 import Vision
 import CoreImage
 
+// Computer vision utility that analyzes camera frames to determine object positions and filter objects by distance
 class DirectionCalculator {
     
     // MARK: - Configuration
     
-    /// Distance filtering configuration
+    // Configurable thresholds for distance filtering with different presets for various use cases
     struct DistanceConfig {
         /// Minimum object density (percentage of significant pixels) to consider object close enough
         let minObjectDensity: Double
@@ -64,9 +65,7 @@ class DirectionCalculator {
     
     // MARK: - Position Detection
     
-    /// Determines the position of objects in the camera frame
-    /// - Parameter pixelBuffer: The camera frame pixel buffer
-    /// - Returns: Position string ("Left", "Center", "Right")
+    // Analyzes camera frame pixel data to determine which region (left, center, right) has the most object activity
     static func determineObjectPosition(from pixelBuffer: CVPixelBuffer) -> String {
         let width = CVPixelBufferGetWidth(pixelBuffer)
         let height = CVPixelBufferGetHeight(pixelBuffer)
@@ -116,12 +115,7 @@ class DirectionCalculator {
         }
     }
     
-    /// Checks if an object is too far away based on pixel analysis
-    /// - Parameters:
-    ///   - pixelBuffer: The camera frame pixel buffer
-    ///   - position: The detected position of the object
-    ///   - config: Distance filtering configuration (defaults to .default)
-    /// - Returns: True if object is too far away to be relevant
+    // Checks if detected objects are too far away by analyzing pixel density, edge strength, and object size in the specified region
     static func isObjectTooFarAway(pixelBuffer: CVPixelBuffer, position: String, config: DistanceConfig = .default) -> Bool {
         // Lock the pixel buffer for reading
         CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
@@ -222,9 +216,7 @@ class DirectionCalculator {
         return isTooFar
     }
     
-    /// Quick method to check if any objects are detected in the frame (for performance)
-    /// - Parameter pixelBuffer: The camera frame pixel buffer
-    /// - Returns: True if any significant objects are detected
+    // Performs a quick scan of the entire frame to determine if any significant objects are present before expensive Core ML processing
     static func hasSignificantObjects(pixelBuffer: CVPixelBuffer) -> Bool {
         let width = CVPixelBufferGetWidth(pixelBuffer)
         let height = CVPixelBufferGetHeight(pixelBuffer)
@@ -283,6 +275,7 @@ class DirectionCalculator {
         case left, center, right
     }
     
+    // Analyzes a specific region of the image to calculate the average activity level based on edge detection
     private static func analyzeImageRegion(buffer: UnsafePointer<UInt8>, bytesPerRow: Int, width: Int, height: Int, region: ImageRegion) -> Double {
         // Calculate region boundaries - ensure proper mapping
         let regionWidth = width / 3
@@ -335,7 +328,7 @@ class DirectionCalculator {
 
 // MARK: - Helper Structs
 
-/// Helper struct to track object boundaries for size calculation
+// Tracks the bounding box coordinates of detected objects to calculate their size as a percentage of the frame
 private struct ObjectBounds {
     private var minX: Int = Int.max
     private var maxX: Int = Int.min

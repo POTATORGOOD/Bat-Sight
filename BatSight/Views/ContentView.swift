@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+// Main menu screen with the Bat Sight logo that navigates to camera mode when tapped
 struct ContentView: View {
     @EnvironmentObject var detectionState: DetectionState
     

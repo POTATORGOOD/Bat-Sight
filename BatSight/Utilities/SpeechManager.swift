@@ -8,6 +8,7 @@
 import Foundation
 import AVFoundation
 
+// Text-to-speech engine that handles all audio announcements with cooldown management and speech configuration
 class SpeechManager: NSObject, ObservableObject {
     private let synthesizer = AVSpeechSynthesizer()
     private var isSpeaking = false
@@ -27,7 +28,7 @@ class SpeechManager: NSObject, ObservableObject {
         setupAudioSession()
     }
     
-    /// Sets up the audio session for speech output
+    // Configures the iOS audio system for optimal speech playback
     private func setupAudioSession() {
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
@@ -37,17 +38,13 @@ class SpeechManager: NSObject, ObservableObject {
         }
     }
     
-    /// Checks if enough time has passed since the last speech
+    // Checks if enough time has passed since the last speech to prevent overlapping announcements
     private func canSpeakNow() -> Bool {
         let timeSinceLastSpeech = Date().timeIntervalSince(lastSpeechTime)
         return timeSinceLastSpeech >= speechCooldown
     }
     
-    /// Announces a detected object with its position
-    /// - Parameters:
-    ///   - objectName: The name of the detected object
-    ///   - position: The position of the object ("Left", "Center", "Right")
-    ///   - confidence: The confidence level of the detection (0.0 to 1.0)
+    // Announces a single detected object with its position and confidence level
     func announceObject(_ objectName: String, position: String, confidence: Float) {
         // Check if we can speak now
         guard canSpeakNow() else {
@@ -78,7 +75,7 @@ class SpeechManager: NSObject, ObservableObject {
         print("Speech: \(announcement)")
     }
     
-    /// Announces when no objects are detected
+    // Announces when no objects are detected in the camera view
     func announceNoObjects() {
         // Check if we can speak now
         guard canSpeakNow() else {
@@ -103,8 +100,7 @@ class SpeechManager: NSObject, ObservableObject {
         print("Speech: No objects detected")
     }
     
-    /// Announces a simple direction update
-    /// - Parameter position: The position to announce
+    // Announces a simple direction update for navigation purposes
     func announcePosition(_ position: String) {
         // Check if we can speak now
         guard canSpeakNow() else {
@@ -129,7 +125,7 @@ class SpeechManager: NSObject, ObservableObject {
         print("Speech: \(position)")
     }
     
-    /// Stops any current speech
+    // Stops any currently playing speech immediately
     func stopSpeaking() {
         if isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
@@ -137,13 +133,12 @@ class SpeechManager: NSObject, ObservableObject {
         }
     }
     
-    /// Checks if the synthesizer is currently speaking
+    // Checks if the synthesizer is currently speaking
     var isCurrentlySpeaking: Bool {
         return isSpeaking
     }
     
-    /// Announces multiple detected objects
-    /// - Parameter objects: Array of detected objects to announce
+    // Announces multiple detected objects in a summary format
     func announceMultipleObjects(_ objects: [DetectedObject]) {
         if objects.isEmpty {
             announceNoObjects()
@@ -180,7 +175,7 @@ class SpeechManager: NSObject, ObservableObject {
         print("Speech: \(announcement)")
     }
     
-    /// Announces camera mode activation
+    // Announces camera mode activation (bypasses cooldown for immediate feedback)
     func announceCameraModeActivated() {
         // Bypass cooldown for mode announcements - always speak immediately
         if isSpeaking {
@@ -202,7 +197,7 @@ class SpeechManager: NSObject, ObservableObject {
         print("Speech: \(announcement)")
     }
     
-    /// Announces camera mode deactivation
+    // Announces camera mode deactivation (bypasses cooldown for immediate feedback)
     func announceCameraModeDeactivated() {
         // Bypass cooldown for mode announcements - always speak immediately
         if isSpeaking {
@@ -224,7 +219,7 @@ class SpeechManager: NSObject, ObservableObject {
         print("Speech: \(announcement)")
     }
     
-    /// Announces voice muted
+    // Announces when voice is muted (bypasses cooldown for immediate feedback)
     func announceVoiceMuted() {
         // Bypass cooldown for mute announcements - always speak immediately
         if isSpeaking {
@@ -246,7 +241,7 @@ class SpeechManager: NSObject, ObservableObject {
         print("Speech: \(announcement)")
     }
     
-    /// Announces voice unmuted
+    // Announces when voice is unmuted (bypasses cooldown for immediate feedback)
     func announceVoiceUnmuted() {
         // Bypass cooldown for mute announcements - always speak immediately
         if isSpeaking {
@@ -271,6 +266,7 @@ class SpeechManager: NSObject, ObservableObject {
 
 // MARK: - AVSpeechSynthesizerDelegate
 
+// Monitors speech synthesis state and updates internal flags when speech starts, finishes, or is cancelled
 extension SpeechManager: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         isSpeaking = false

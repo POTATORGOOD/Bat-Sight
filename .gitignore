@@ -90,4 +90,41 @@ fastlane/test_output
 iOSInjectionProject/
 
 # macOS
-.DS_Store 
+.DS_Store
+
+# Core ML models (large files)
+*.mlmodel
+*.mlpackage
+*.pt
+
+# Python virtual environment
+yolov8_env/
+__pycache__/
+*.pyc
+
+# Temporary files
+*.tmp
+*.temp
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk 
