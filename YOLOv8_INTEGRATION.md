@@ -1,166 +1,175 @@
-# YOLOv8 Integration for BatSight
+# YOLOv8 Integration Guide for BatSight
 
-This guide explains how to integrate YOLOv8 object detection into your BatSight iOS app, replacing the current Vision framework implementation.
+This guide explains how to integrate YOLOv8 object detection into your BatSight iOS app using the official Ultralytics framework.
 
-## What Changed
+## Overview
 
-### Before (Vision Framework)
-- Used `VNClassifyImageRequest` for object classification
-- Only identified what objects were present
-- Position detection relied on pixel analysis
-- Limited to single object detection per frame
+YOLOv8 provides superior object detection capabilities compared to Apple's Vision framework:
+- **Multiple object detection** with precise bounding boxes
+- **Higher accuracy** for complex scenes
+- **Real-time performance** optimized for mobile devices
+- **80+ object classes** including people, animals, vehicles, and everyday objects
 
-### After (YOLOv8)
-- Uses `VNCoreMLRequest` with YOLOv8 model for object detection
-- Provides precise bounding box coordinates
-- Multiple object detection in a single frame
-- More accurate position detection based on actual object bounds
-- Better performance and accuracy
+## Quick Start (Recommended)
 
-## Files Added/Modified
+### 1. Run the Conversion Script
 
-### New Files
-- `BatSight/Models/YOLOv8Model.swift` - YOLOv8 model manager
-- `download_yolov8_model.py` - Script to download and convert YOLOv8 model
-- `YOLOv8_INTEGRATION.md` - This guide
-
-### Modified Files
-- `BatSight/Models/DetectionModel.swift` - Added YOLOv8Detection support
-- `BatSight/Views/CameraView.swift` - Replaced Vision with YOLOv8 detection
-
-## Setup Instructions
-
-### 1. Download and Convert YOLOv8 Model
-
-Run the provided Python script to download and convert the YOLOv8n model:
+Use the provided conversion script for the easiest setup:
 
 ```bash
-python3 download_yolov8_model.py
+python3 convert_yolov8_to_coreml.py
 ```
 
 This script will:
-- Install required Python packages (ultralytics, coremltools, etc.)
-- Download the YOLOv8n (nano) model
-- Convert it to Core ML format
-- Move the model file to your BatSight directory
+- Install required dependencies
+- Download YOLOv8n (nano) model
+- Convert to Core ML format with optimizations
+- Provide instructions for adding to Xcode
 
-### 2. Add Model to Xcode Project
+### 2. Add Model to Xcode
 
-1. Open your BatSight.xcodeproj in Xcode
-2. Drag `yolov8n.mlmodel` from the BatSight directory into your project navigator
-3. Make sure "Add to target" is checked for your BatSight target
-4. Build the project to verify the model is properly integrated
+1. **Drag the generated `.mlpackage` file** into your Xcode project
+2. **Ensure "Add to target"** is checked for BatSight
+3. **Build and run** - the app will automatically use YOLOv8
 
-### 3. Build and Test
+## Manual Setup (Advanced)
 
-1. Clean build folder (Product → Clean Build Folder)
-2. Build and run your app
-3. Test object detection in camera mode
+### Prerequisites
 
-## How It Works
+```bash
+# Install Python 3.8-3.11 (Core ML tools compatibility)
+brew install python@3.11
 
-### YOLOv8ModelManager
-- Manages the YOLOv8 Core ML model
-- Handles model loading and error fallback
-- Processes detection results with bounding boxes
-- Applies non-maximum suppression (NMS) to remove overlapping detections
-- Filters out generic labels and low-confidence detections
+# Create virtual environment
+python3.11 -m venv yolov8_env
+source yolov8_env/bin/activate
 
-### Detection Pipeline
-1. **Pre-filtering**: Uses `DirectionCalculator.hasSignificantObjects()` to avoid expensive processing
-2. **YOLOv8 Detection**: Performs object detection with bounding boxes
-3. **Distance Filtering**: Uses `DirectionCalculator.isObjectTooFarAway()` to filter distant objects
-4. **Position Calculation**: Calculates position (Left/Center/Right) based on bounding box center
-5. **Speech Feedback**: Converts detections to `DetectedObject` format for speech announcements
-
-### Position Detection
-The new system uses actual bounding box coordinates instead of pixel analysis:
-
-```swift
-// Calculate position based on bounding box center
-let centerX = boundingBox.midX
-
-if centerX < 0.33 {
-    self.position = "Left"
-} else if centerX > 0.67 {
-    self.position = "Right"
-} else {
-    self.position = "Center"
-}
+# Install packages
+pip install ultralytics coremltools
 ```
 
-## Model Options
+### Model Conversion
 
-The current implementation uses YOLOv8n (nano) for speed. You can use other YOLOv8 variants:
+```python
+from ultralytics import YOLO
 
-- **YOLOv8n** (nano) - Fastest, smallest (6.7M parameters)
-- **YOLOv8s** (small) - Good balance (11.2M parameters)
-- **YOLOv8m** (medium) - Better accuracy (25.9M parameters)
-- **YOLOv8l** (large) - High accuracy (43.7M parameters)
-- **YOLOv8x** (xlarge) - Best accuracy (68.2M parameters)
+# Load YOLOv8 model
+model = YOLO('yolov8n.pt')  # or yolov8s.pt, yolov8m.pt, etc.
 
-To use a different model, modify the `modelName` in `YOLOv8ModelManager`:
-
-```swift
-private let modelName = "yolov8s" // Change to desired model
+# Export to Core ML with optimizations
+model.export(
+    format='coreml',
+    imgsz=640,        # Input image size
+    simplify=True,    # Simplify model for better performance
+    nms=True,         # Include NMS in the model
+    int8=True,        # Quantize to int8 for smaller size
+    half=True,        # Use half precision
+    dynamic=True,     # Enable dynamic shapes
+    device='cpu'      # Use CPU for conversion
+)
 ```
 
-## Fallback System
+## Model Size Comparison
 
-If the YOLOv8 model fails to load, the system automatically falls back to the original Vision framework implementation, ensuring your app continues to work.
+| Model | Size | Speed | Accuracy | Use Case |
+|-------|------|-------|----------|----------|
+| YOLOv8n | ~6MB | Fastest | Good | Mobile apps, real-time |
+| YOLOv8s | ~22MB | Fast | Better | Balanced performance |
+| YOLOv8m | ~52MB | Medium | High | High accuracy needed |
+| YOLOv8l | ~87MB | Slow | Very High | Maximum accuracy |
+| YOLOv8x | ~136MB | Slowest | Highest | Research/offline |
 
-## Performance Considerations
+**Recommendation**: Start with YOLOv8n for BatSight - it provides excellent performance for mobile use.
 
-- **Model Size**: YOLOv8n is ~6MB, suitable for mobile devices
-- **Processing Speed**: YOLOv8n processes ~640x640 images at ~10-20 FPS on modern devices
-- **Memory Usage**: Core ML optimizes memory usage automatically
-- **Battery Impact**: YOLOv8n is designed for efficient inference
+## Integration Details
+
+### Swift Implementation
+
+The `YOLOv8ModelManager` class handles:
+- **Model loading** from app bundle
+- **Object detection** using Vision framework wrapper
+- **Result processing** with confidence filtering
+- **Fallback to Vision** if YOLOv8 model unavailable
+
+### Key Features
+
+1. **Automatic Fallback**: If YOLOv8 model isn't available, the app uses Vision framework
+2. **Single Object Focus**: Returns only the most confident detection for clarity
+3. **Position Detection**: Calculates left/center/right positioning
+4. **Generic Label Filtering**: Removes non-descriptive labels
+5. **Non-Maximum Suppression**: Eliminates overlapping detections
+
+### Performance Optimizations
+
+- **Int8 quantization** for smaller model size
+- **Half precision** for faster inference
+- **Model simplification** for mobile optimization
+- **Dynamic shapes** for flexible input sizes
 
 ## Troubleshooting
 
-### Model Not Found Error
+### Common Issues
+
+1. **"Model not found" error**
+   - Ensure `.mlpackage` file is added to Xcode project
+   - Check that "Add to target" is selected
+   - Verify file name matches `yolov8n.mlpackage`
+
+2. **Conversion fails**
+   - Use Python 3.8-3.11 (Core ML tools compatibility)
+   - Install latest ultralytics: `pip install --upgrade ultralytics`
+   - Try different model size (YOLOv8n is most reliable)
+
+3. **App crashes on model load**
+   - Check device compatibility (iOS 17.0+)
+   - Verify model file integrity
+   - Test with Vision framework fallback
+
+### Debug Information
+
+The app logs detailed information about model loading:
 ```
-YOLOv8 model not found in bundle. Please add yolov8n.mlmodel to your project.
+Looking for model: yolov8n.mlpackage
+Found model at: /path/to/model
+Compiled model at: /path/to/compiled/model
+YOLOv8 model loaded successfully
 ```
-**Solution**: Make sure the model file is added to your Xcode project target.
 
-### Build Errors
-If you get build errors related to Core ML:
-1. Clean build folder (Product → Clean Build Folder)
-2. Delete derived data (Window → Projects → Click arrow next to derived data path)
-3. Rebuild project
+## Advanced Configuration
 
-### Performance Issues
-If detection is too slow:
-1. Try a smaller model (YOLOv8n instead of YOLOv8s)
-2. Reduce input image size in the model conversion
-3. Increase confidence threshold to reduce detections
+### Custom Model Training
 
-### Accuracy Issues
-If detection accuracy is poor:
-1. Try a larger model (YOLOv8s or YOLOv8m)
-2. Adjust confidence threshold
-3. Fine-tune the generic label filtering
+For domain-specific detection (e.g., accessibility objects):
 
-## Benefits of YOLOv8
+1. **Collect dataset** of relevant objects
+2. **Train custom YOLOv8 model** using Ultralytics
+3. **Export to Core ML** using the same process
+4. **Replace model file** in Xcode project
 
-1. **Better Accuracy**: YOLOv8 outperforms traditional classification models
-2. **Multiple Objects**: Detect multiple objects simultaneously
-3. **Precise Localization**: Get exact bounding box coordinates
-4. **Real-time Performance**: Optimized for mobile inference
-5. **Active Development**: Regular updates and improvements from Ultralytics
+### Performance Tuning
 
-## Future Enhancements
+Adjust these parameters in `YOLOv8ModelManager`:
 
-- **Custom Training**: Train YOLOv8 on your specific use cases
-- **Object Tracking**: Add object tracking across frames
-- **Distance Estimation**: Use bounding box size for distance estimation
-- **Gesture Recognition**: Detect hand gestures and movements
-- **Obstacle Avoidance**: Enhanced navigation with precise object locations
+```swift
+private let confidenceThreshold: Float = 0.3  // Detection confidence
+private let nmsThreshold: Float = 0.5         // Overlap suppression
+```
 
 ## Resources
 
-- [YOLOv8 Documentation](https://yolov8.com/)
-- [Ultralytics GitHub](https://github.com/ultralytics/ultralytics)
-- [Core ML Documentation](https://developer.apple.com/documentation/coreml)
-- [Vision Framework](https://developer.apple.com/documentation/vision) 
+- [Ultralytics YOLOv8 Documentation](https://docs.ultralytics.com/)
+- [Core ML Framework Guide](https://developer.apple.com/documentation/coreml)
+- [Vision Framework Reference](https://developer.apple.com/documentation/vision)
+- [BatSight GitHub Repository](https://github.com/your-repo/batsight)
+
+## Support
+
+If you encounter issues:
+1. Check the troubleshooting section above
+2. Review the conversion script output
+3. Test with Vision framework fallback
+4. Open an issue with detailed error information
+
+---
+
+**Note**: The app gracefully falls back to Vision framework if YOLOv8 is unavailable, ensuring it always works regardless of model status. 

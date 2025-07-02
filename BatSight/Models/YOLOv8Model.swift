@@ -40,7 +40,7 @@ class YOLOv8ModelManager: ObservableObject {
     private var model: VNCoreMLModel?
     private let modelName = "yolov8n" // Using nano model for speed
     private let modelExtension = "mlpackage" // Using mlpackage format
-    private let confidenceThreshold: Float = 0.3
+    private let confidenceThreshold: Float = 0.3  // Back to original threshold
     private let nmsThreshold: Float = 0.5
     
     // Generic labels to filter out (same as your current implementation)
@@ -66,7 +66,14 @@ class YOLOv8ModelManager: ObservableObject {
             // Try to load the model from the app bundle
             print("Looking for model: \(modelName).\(modelExtension)")
             
-            if let modelURL = Bundle.main.url(forResource: modelName, withExtension: modelExtension) {
+            // First try to find the compiled model (.mlmodelc)
+            if let compiledModelURL = Bundle.main.url(forResource: modelName, withExtension: "mlmodelc") {
+                print("Found compiled model at: \(compiledModelURL)")
+                model = try VNCoreMLModel(for: MLModel(contentsOf: compiledModelURL))
+                print("YOLOv8 model loaded successfully from compiled model")
+            }
+            // If not found, try to find the original .mlpackage and compile it
+            else if let modelURL = Bundle.main.url(forResource: modelName, withExtension: modelExtension) {
                 print("Found model at: \(modelURL)")
                 let compiledModelURL = try MLModel.compileModel(at: modelURL)
                 print("Compiled model at: \(compiledModelURL)")
