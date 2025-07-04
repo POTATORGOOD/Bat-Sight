@@ -45,7 +45,7 @@ class SpeechManager: NSObject, ObservableObject {
     }
     
     // Announces a single detected object with its position and confidence level
-    func announceObject(_ objectName: String, position: String, confidence: Float) {
+    func announceObject(_ objectName: String, position: String, confidence: Float, distance: Float? = nil, distanceCategory: String? = nil) {
         // Check if we can speak now
         guard canSpeakNow() else {
             print("Speech blocked - cooldown active")
@@ -57,8 +57,15 @@ class SpeechManager: NSObject, ObservableObject {
             synthesizer.stopSpeaking(at: .immediate)
         }
         
-        // Create the announcement text (without distance)
-        let announcement = "\(objectName) detected \(position)"
+        // Create the announcement text (with distance if available)
+        var announcement = "\(objectName) detected \(position)"
+        if let category = distanceCategory, let dist = distance {
+            announcement += ", \(category), \(String(format: "%.1f", dist)) meters"
+        } else if let category = distanceCategory {
+            announcement += ", \(category)"
+        } else if let dist = distance {
+            announcement += ", \(String(format: "%.1f", dist)) meters"
+        }
         
         // Create and configure the speech utterance
         let utterance = AVSpeechUtterance(string: announcement)
@@ -182,7 +189,7 @@ class SpeechManager: NSObject, ObservableObject {
             synthesizer.stopSpeaking(at: .immediate)
         }
         
-        let announcement = "Camera Mode Activated"
+        let announcement = "Object Detection Activated"
         
         let utterance = AVSpeechUtterance(string: announcement)
         utterance.rate = speechRate
@@ -204,7 +211,7 @@ class SpeechManager: NSObject, ObservableObject {
             synthesizer.stopSpeaking(at: .immediate)
         }
         
-        let announcement = "Camera Mode Deactivated"
+        let announcement = "Object Detection Deactivated"
         
         let utterance = AVSpeechUtterance(string: announcement)
         utterance.rate = speechRate

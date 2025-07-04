@@ -60,6 +60,24 @@ struct CameraView: View {
                                             
                                             Spacer()
                                         }
+                                        if let distance = detection.distance, let category = detection.distanceCategory {
+                                            HStack {
+                                                Text(String(format: "Distance: %.1f m", distance))
+                                                    .font(.caption2)
+                                                    .foregroundColor(.green)
+                                                Text("[\(category)]")
+                                                    .font(.caption2)
+                                                    .foregroundColor(.orange)
+                                            }
+                                        } else if let distance = detection.distance {
+                                            Text(String(format: "Distance: %.1f m", distance))
+                                                .font(.caption2)
+                                                .foregroundColor(.green)
+                                        } else if let category = detection.distanceCategory {
+                                            Text("[\(category)]")
+                                                .font(.caption2)
+                                                .foregroundColor(.orange)
+                                        }
                                     }
                                     .padding(.vertical, 2)
                                 }
@@ -86,15 +104,15 @@ struct CameraView: View {
     }
 }
 
-// Manages camera hardware setup, video processing, and YOLOv8 object detection pipeline
+// Manages camera hardware setup, video processing, and Vision framework object detection pipeline
 class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var detectionState: DetectionState
-    private let yoloModelManager = YOLOv8ModelManager()
+    private let visionModelManager = VisionModelManager()
     
     private var captureSession: AVCaptureSession
     private var videoOutput: AVCaptureVideoDataOutput
     private let sessionQueue = DispatchQueue(label: "camera.session.queue")
-    private let detectionQueue = DispatchQueue(label: "yolo.detection.queue")
+    private let detectionQueue = DispatchQueue(label: "vision.detection.queue")
     
     // Position detection state
     private var lastDetectionTime: Date = Date()
@@ -110,10 +128,10 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
         setupCamera()
     }
     
-    // Sets up YOLOv8 model for object detection
+    // Sets up Vision model for object detection
     private func setupCoreMLModel() {
-        // YOLOv8 model is initialized in YOLOv8ModelManager
-        print("YOLOv8 model setup completed")
+        // Vision model is initialized in VisionModelManager
+        print("Vision model setup completed")
     }
     
     // Always requests camera permission when entering camera mode, allowing users to change their mind
@@ -208,39 +226,83 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
         performCoreMLObjectDetection(pixelBuffer: pixelBuffer)
     }
     
-    // Main object detection pipeline that processes camera frames using YOLOv8
+    // Main object detection pipeline that uses Vision for detection and YOLO for distance estimation
     private func performCoreMLObjectDetection(pixelBuffer: CVPixelBuffer) {
-        // Quick check for significant objects before doing expensive YOLOv8 processing
-        guard DirectionCalculator.hasSignificantObjects(pixelBuffer: pixelBuffer) else {
-            // No significant objects detected, clear detections
-            DispatchQueue.main.async {
-                self.detectionState.updateDetections([])
-            }
-            return
-        }
-        
-        // Use YOLOv8 for object detection
-        yoloModelManager.performDetection(on: pixelBuffer) { [weak self] yoloDetections in
+        // Use Vision framework for object detection
+        visionModelManager.performDetection(on: pixelBuffer) { [weak self] visionDetections in
             guard let self = self else { return }
             
-            // Convert YOLOv8 detections to DetectedObject format
-            let detectedObjects: [DetectedObject] = yoloDetections.compactMap { yoloDetection in
-                // Check if object is too far away using DirectionCalculator with configurable filtering
-                // Using veryClose filtering to only detect objects within a few feet
-                if DirectionCalculator.isObjectTooFarAway(pixelBuffer: pixelBuffer, position: yoloDetection.position, config: .veryClose) {
-                    print("Object filtered out - too far away")
-                    return nil
+            // If no Vision detections, clear
+            if visionDetections.isEmpty {
+                DispatchQueue.main.async {
+                    self.detectionState.updateDetections([])
                 }
-                
-                // Create DetectedObject from YOLOv8Detection
-                return DetectedObject(from: yoloDetection)
+                return
             }
             
-            DispatchQueue.main.async {
-                self.detectionState.updateDetections(detectedObjects)
+            // Get the top Vision detection
+            let topVisionDetection = visionDetections.sorted(by: { $0.confidence > $1.confidence }).first!
+            
+            // Use YOLO to get bounding boxes for distance estimation
+            let yoloModelManager = YOLOv8ModelManager()
+            yoloModelManager.extractBoundingBoxesForDistance(on: pixelBuffer) { [weak self] yoloBoundingBoxes in
+                guard let self = self else { return }
+                
+                // Find the best matching YOLO bounding box for the Vision detection
+                let bestYOLOBox = yoloBoundingBoxes.max(by: { yoloBox1, yoloBox2 in
+                    self.iou(yoloBox1, topVisionDetection.boundingBox) < self.iou(yoloBox2, topVisionDetection.boundingBox)
+                })
+                
+                // Estimate distance from YOLO bounding box size (if available)
+                var distance: Float? = nil
+                var distanceCategory: String? = nil
+                
+                if let yoloBox = bestYOLOBox {
+                    let boxArea = yoloBox.width * yoloBox.height
+                    if boxArea >= 0.15 {
+                        distance = 0.5
+                        distanceCategory = "very close"
+                    } else if boxArea >= 0.08 {
+                        distance = 1.0
+                        distanceCategory = "close"
+                    } else if boxArea >= 0.04 {
+                        distance = 1.5
+                        distanceCategory = "medium"
+                    } else if boxArea >= 0.02 {
+                        distance = 2.5
+                        distanceCategory = "far"
+                    } else if boxArea > 0 {
+                        distance = 4.0
+                        distanceCategory = "very far"
+                    }
+                }
+                
+                // Create DetectedObject with Vision label, YOLO bounding box for direction, and YOLO distance
+                let boundingBoxForDirection = bestYOLOBox ?? topVisionDetection.boundingBox
+                let detectedObject = DetectedObject(
+                    identifier: topVisionDetection.identifier,
+                    confidence: topVisionDetection.confidence,
+                    boundingBox: boundingBoxForDirection,
+                    distance: distance,
+                    distanceCategory: distanceCategory
+                )
+                
+                DispatchQueue.main.async {
+                    self.detectionState.updateDetections([detectedObject])
+                }
             }
         }
     }
+    
+    // Helper function for IoU (Intersection over Union)
+    private func iou(_ a: CGRect, _ b: CGRect) -> CGFloat {
+        let intersection = a.intersection(b)
+        let intersectionArea = intersection.width * intersection.height
+        let unionArea = a.width * a.height + b.width * b.height - intersectionArea
+        if unionArea <= 0 { return 0 }
+        return intersectionArea / unionArea
+    }
+
 }
 
 // SwiftUI wrapper that bridges the camera manager to the UIKit camera preview

@@ -20,6 +20,10 @@ class DetectionState: ObservableObject {
     // Track previous state to avoid duplicate announcements
     private var previousObjects: [DetectedObject] = []
     
+    // Speech delay mechanism
+    private var lastAnnouncementTime: Date = Date.distantPast
+    private let minimumAnnouncementInterval: TimeInterval = 4.0 // 4 seconds between announcements
+    
     // Updates the current detection state and triggers speech announcements if objects change significantly
     func updateDetections(_ objects: [DetectedObject]) {
         detectedObjects = objects
@@ -50,13 +54,21 @@ class DetectionState: ObservableObject {
             return
         }
         
-                    // If this is the first detection or objects have changed significantly
-            if previousObjects.isEmpty || hasSignificantChange(objects) {
-                // Always announce single object with details (since we only detect one now)
-                if let object = objects.first {
-                    speechManager.announceObject(object.identifier, position: object.position, confidence: object.confidence)
-                }
+        // Check if enough time has passed since the last announcement
+        let timeSinceLastAnnouncement = Date().timeIntervalSince(lastAnnouncementTime)
+        if timeSinceLastAnnouncement < minimumAnnouncementInterval {
+            print("Skipping announcement - too soon since last one (\(timeSinceLastAnnouncement)s)")
+            return
+        }
+        
+        // If this is the first detection or objects have changed significantly
+        if previousObjects.isEmpty || hasSignificantChange(objects) {
+            // Always announce single object with details (since we only detect one now)
+            if let object = objects.first {
+                lastAnnouncementTime = Date()
+                speechManager.announceObject(object.identifier, position: object.position, confidence: object.confidence, distance: object.distance, distanceCategory: object.distanceCategory)
             }
+        }
     }
     
     // Checks if the detection has changed significantly enough to warrant a new announcement
@@ -132,19 +144,23 @@ struct DetectedObject {
     let confidence: Float
     let position: String
     let boundingBox: CGRect
+    var distance: Float? // in meters
+    var distanceCategory: String? // e.g., "very close", "close", "far"
     
-    init(identifier: String, confidence: Float, boundingBox: CGRect) {
+    init(identifier: String, confidence: Float, boundingBox: CGRect, distance: Float? = nil, distanceCategory: String? = nil) {
         self.identifier = identifier
         self.confidence = confidence
         self.boundingBox = boundingBox
+        self.distance = distance
+        self.distanceCategory = distanceCategory
         
         // Calculate relative position based on bounding box center
-        // Using YOLOv8-style positioning with 33% zones
+        // Using 2/5-1/5-2/5 zones: Left (0-0.4), Center (0.4-0.6), Right (0.6-1.0)
         let centerX = boundingBox.midX
         
-        if centerX < 0.33 {
+        if centerX < 0.4 {
             self.position = "Left"
-        } else if centerX > 0.67 {
+        } else if centerX > 0.6 {
             self.position = "Right"
         } else {
             self.position = "Center"
@@ -152,10 +168,22 @@ struct DetectedObject {
     }
     
     // Convenience initializer from YOLOv8Detection
-    init(from yoloDetection: YOLOv8Detection) {
+    init(from yoloDetection: YOLOv8Detection, distance: Float? = nil, distanceCategory: String? = nil) {
         self.identifier = yoloDetection.identifier
         self.confidence = yoloDetection.confidence
         self.position = yoloDetection.position
         self.boundingBox = yoloDetection.boundingBox
+        self.distance = distance
+        self.distanceCategory = distanceCategory
+    }
+    
+    // Convenience initializer from VisionDetection
+    init(from visionDetection: VisionDetection, distance: Float? = nil, distanceCategory: String? = nil) {
+        self.identifier = visionDetection.identifier
+        self.confidence = visionDetection.confidence
+        self.position = visionDetection.position
+        self.boundingBox = visionDetection.boundingBox
+        self.distance = distance
+        self.distanceCategory = distanceCategory
     }
 }

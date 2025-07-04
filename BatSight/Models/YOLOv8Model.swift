@@ -141,6 +141,49 @@ class YOLOv8ModelManager: ObservableObject {
         }
     }
     
+    // Extracts only bounding boxes from YOLO for distance estimation (no object classification)
+    func extractBoundingBoxesForDistance(on pixelBuffer: CVPixelBuffer, completion: @escaping ([CGRect]) -> Void) {
+        guard let model = model else {
+            // If no YOLO model, return empty array
+            completion([])
+            return
+        }
+        
+        let request = VNCoreMLRequest(model: model) { [weak self] request, error in
+            guard let self = self else { return }
+            
+            if let error = error {
+                print("YOLO bounding box extraction error: \(error)")
+                completion([])
+                return
+            }
+            
+            guard let results = request.results as? [VNRecognizedObjectObservation] else {
+                completion([])
+                return
+            }
+            
+            // Extract only bounding boxes, no object classification
+            let boundingBoxes = results
+                .filter { $0.confidence >= self.confidenceThreshold }
+                .map { $0.boundingBox }
+            
+            completion(boundingBoxes)
+        }
+        
+        // Configure the request
+        request.imageCropAndScaleOption = .scaleFill
+        
+        // Perform the request
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+        do {
+            try handler.perform([request])
+        } catch {
+            print("Failed to perform YOLO bounding box extraction: \(error)")
+            completion([])
+        }
+    }
+    
     // Processes YOLOv8 detection results - returns only the most confident detection
     private func processYOLOv8Results(_ results: [VNRecognizedObjectObservation]) -> [YOLOv8Detection] {
         var detections: [YOLOv8Detection] = []
