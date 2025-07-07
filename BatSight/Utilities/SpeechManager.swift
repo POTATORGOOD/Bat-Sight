@@ -269,6 +269,48 @@ class SpeechManager: NSObject, ObservableObject {
         
         print("Speech: \(announcement)")
     }
+    
+    // Announces when a manual scan is being performed
+    func announceManualScan() {
+        // Bypass cooldown for scan announcements - always speak immediately
+        if isSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+        
+        let announcement = "Scanning environment"
+        
+        let utterance = AVSpeechUtterance(string: announcement)
+        utterance.rate = speechRate
+        utterance.pitchMultiplier = speechPitch
+        utterance.volume = speechVolume
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        
+        synthesizer.speak(utterance)
+        isSpeaking = true
+        lastSpeechTime = Date()
+        
+        print("Speech: \(announcement)")
+    }
+    
+    // Announces a custom message (bypasses cooldown for immediate feedback)
+    func announceCustomMessage(_ message: String) {
+        // Bypass cooldown for custom messages - always speak immediately
+        if isSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+        
+        let utterance = AVSpeechUtterance(string: message)
+        utterance.rate = speechRate
+        utterance.pitchMultiplier = speechPitch
+        utterance.volume = speechVolume
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        
+        synthesizer.speak(utterance)
+        isSpeaking = true
+        lastSpeechTime = Date()
+        
+        print("Speech: \(message)")
+    }
 }
 
 // MARK: - AVSpeechSynthesizerDelegate

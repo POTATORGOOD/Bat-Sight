@@ -20,6 +20,9 @@ class DetectionState: ObservableObject {
     // Track previous state to avoid duplicate announcements
     private var previousObjects: [DetectedObject] = []
     
+    // Track manual scan state
+    private var isManualScanInProgress: Bool = false
+    
     // Speech delay mechanism
     private var lastAnnouncementTime: Date = Date.distantPast
     private let minimumAnnouncementInterval: TimeInterval = 4.0 // 4 seconds between announcements
@@ -135,6 +138,107 @@ class DetectionState: ObservableObject {
     func announceCameraModeDeactivated() {
         // Always announce navigation events, regardless of speech enabled setting
         speechManager.announceCameraModeDeactivated()
+    }
+    
+    // Performs a manual scan and announces the current environment
+    func performManualScan() {
+        // Stop any current speech
+        stopSpeech()
+        
+        // Set manual scan in progress
+        isManualScanInProgress = true
+        
+        // Announce that we're scanning
+        speechManager.announceManualScan()
+        
+        // Wait a moment for the announcement, then announce current detections
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            // End manual scan
+            self.isManualScanInProgress = false
+            
+            if self.detectedObjects.isEmpty {
+                self.speechManager.announceNoObjects()
+            } else {
+                // Analyze objects to infer location
+                let locationContext = self.inferLocationFromObjects(self.detectedObjects)
+                
+                // Create a descriptive announcement
+                let environmentDescription: String
+                if locationContext == "unknown location" {
+                    environmentDescription = "I'm not sure where you are. Please look around so I can better understand your surroundings."
+                } else {
+                    environmentDescription = "You appear to be in a \(locationContext)."
+                }
+                self.speechManager.announceCustomMessage(environmentDescription)
+            }
+        }
+    }
+    
+    // Analyzes detected objects to infer the user's location context
+    private func inferLocationFromObjects(_ objects: [DetectedObject]) -> String {
+        let objectTypes = Set(objects.map { $0.identifier.lowercased() })
+        
+        // Bedroom indicators
+        let bedroomObjects = ["bed", "pillow", "mattress", "nightstand", "lamp", "dresser", "wardrobe", "closet", "blanket", "sheet", "bedding", "curtain", "clothing"]
+        let bedroomMatches = objectTypes.intersection(bedroomObjects)
+        
+        // Kitchen indicators
+        let kitchenObjects = ["refrigerator", "fridge", "stove", "oven", "microwave", "sink", "dishwasher", "cabinet", "counter", "table", "chair", "spoon", "fork", "knife", "plate", "bowl", "cup", "mug", "pot", "pan", "kettle", "coffee maker", "blender", "toaster"]
+        let kitchenMatches = objectTypes.intersection(kitchenObjects)
+        
+        // Living room indicators
+        let livingRoomObjects = ["sofa", "couch", "tv", "television", "coffee table", "lamp", "chair", "carpet", "rug", "bookshelf", "fireplace", "remote", "cushion", "throw pillow"]
+        let livingRoomMatches = objectTypes.intersection(livingRoomObjects)
+        
+        // Bathroom indicators
+        let bathroomObjects = ["toilet", "sink", "shower", "bathtub", "mirror", "towel", "soap", "toothbrush", "toilet paper", "shampoo", "conditioner"]
+        let bathroomMatches = objectTypes.intersection(bathroomObjects)
+        
+        // Office indicators
+        let officeObjects = ["desk", "computer", "laptop", "monitor", "keyboard", "mouse", "chair", "bookshelf", "printer", "paper", "pen", "pencil", "notebook", "file", "folder"]
+        let officeMatches = objectTypes.intersection(officeObjects)
+        
+        // Street/outdoor indicators
+        let streetObjects = ["car", "vehicle", "tree", "building", "road", "sidewalk", "street", "traffic light", "sign", "bench", "park", "grass", "flower", "bush", "sky", "cloud"]
+        let streetMatches = objectTypes.intersection(streetObjects)
+        
+        // Dining room indicators
+        let diningRoomObjects = ["table", "chair", "plate", "bowl", "cup", "glass", "napkin", "placemat", "centerpiece"]
+        let diningRoomMatches = objectTypes.intersection(diningRoomObjects)
+        
+        // Garage indicators
+        let garageObjects = ["car", "vehicle", "tool", "toolbox", "workbench", "shelf", "storage", "bicycle", "motorcycle"]
+        let garageMatches = objectTypes.intersection(garageObjects)
+        
+        // Count matches for each location type
+        let locationScores = [
+            "bedroom": bedroomMatches.count,
+            "kitchen": kitchenMatches.count,
+            "living room": livingRoomMatches.count,
+            "bathroom": bathroomMatches.count,
+            "office": officeMatches.count,
+            "street": streetMatches.count,
+            "dining room": diningRoomMatches.count,
+            "garage": garageMatches.count
+        ]
+        
+        // Find the location with the highest score
+        let bestLocation = locationScores.max { $0.value < $1.value }
+        
+        if let location = bestLocation, location.value > 0 {
+            return location.key
+        } else {
+            // If no specific location detected, try to infer from general objects
+            if objectTypes.contains("person") {
+                return "room with people"
+            } else if objectTypes.contains("chair") || objectTypes.contains("table") {
+                return "indoor space"
+            } else if objectTypes.contains("wall") || objectTypes.contains("door") {
+                return "indoor area"
+            } else {
+                return "unknown location"
+            }
+        }
     }
 }
 
