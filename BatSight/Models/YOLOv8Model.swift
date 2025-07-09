@@ -184,8 +184,8 @@ class YOLOv8ModelManager: ObservableObject {
         }
     }
     
-    // Processes YOLOv8 detection results - returns only the most confident detection
-    private func processYOLOv8Results(_ results: [VNRecognizedObjectObservation]) -> [YOLOv8Detection] {
+    // Processes YOLOv8 detection results - returns only the most confident detection unless returnAllDetections is true
+    private func processYOLOv8Results(_ results: [VNRecognizedObjectObservation], returnAllDetections: Bool = false) -> [YOLOv8Detection] {
         var detections: [YOLOv8Detection] = []
         
         for observation in results {
@@ -219,7 +219,7 @@ class YOLOv8ModelManager: ObservableObject {
         let sortedDetections = filteredDetections.sorted { $0.confidence > $1.confidence }
         
         // Return only the top detection (most confident)
-        return sortedDetections.prefix(1).map { $0 }
+        return returnAllDetections ? sortedDetections : sortedDetections.prefix(1).map { $0 }
     }
     
     // Applies non-maximum suppression to remove overlapping detections

@@ -23,6 +23,8 @@
 - **Audio Feedback**: Text-to-speech announcements with timing controls
 - **Single Object Focus**: Processes only the most confident detection per frame
 - **Accessibility-First Design**: Optimized for visually impaired users
+- **Haptic Feedback**: Tactile response for all user interactions, including navigation, toggles, and main actions
+- **Intelligent Location Detection**: "Where Am I?" button analyzes detected objects to infer the user's environment (e.g., kitchen, bedroom, street)
 
 ---
 
@@ -73,6 +75,7 @@ struct BatSightApp: App {
 - **Navigation**: Seamless transition to camera mode
 - **Visual Design**: Purple background (RGB: 45, 5, 102)
 - **Accessibility**: Hidden back button for cleaner navigation
+- **Haptic Feedback**: Light tactile response when tapping the logo to enter camera mode
 
 ### 3. Camera Interface (`CameraFrame.swift`)
 - **Header Bar**: Logo, detection text, and speech toggle
@@ -80,6 +83,8 @@ struct BatSightApp: App {
 - **Speech Controls**: Visual feedback for audio settings
 - **Camera Preview**: Rounded frame with white border
 - **Navigation Events**: Audio announcements for mode changes
+- **Haptic Feedback**: Light feedback for navigation and toggles, medium feedback for main actions
+- **"Where Am I?" Button**: Analyzes all detected objects during a manual scan and infers the user's environment (e.g., "You appear to be in a kitchen.")
 
 ### 4. Camera Management (`CameraView.swift`)
 
@@ -172,12 +177,15 @@ let bestYOLOBox = yoloBoundingBoxes.max(by: { yoloBox1, yoloBox2 in
 - **Rounded Corners**: 20px radius for camera frame
 - **Shadows**: White glow effect for camera preview
 - **Typography**: Custom Times font for detection text
+- **Haptic Feedback**: All buttons and navigation elements provide tactile feedback for a more accessible and responsive experience
 
 ### Accessibility Features
 - **Large Touch Targets**: 75x75px logo buttons
 - **High Contrast**: White text on dark background
 - **Clear Navigation**: Hidden back buttons for simplicity
 - **Audio Feedback**: Comprehensive speech announcements
+- **Haptic Feedback**: Consistent tactile response for all interactions
+- **Intelligent Location Detection**: The "Where Am I?" button provides a concise spoken summary of the inferred environment, or a helpful fallback if the environment cannot be determined
 
 ### Detection Display
 ```

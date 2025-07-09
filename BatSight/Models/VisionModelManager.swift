@@ -59,22 +59,24 @@ struct VisionDetection {
     }
     
     // Performs object detection using Vision framework only
-    func performDetection(on pixelBuffer: CVPixelBuffer, completion: @escaping ([VisionDetection]) -> Void) {
+    func performDetection(on pixelBuffer: CVPixelBuffer, returnAllDetections: Bool = false, completion: @escaping ([VisionDetection]) -> Void) {
         // Use Vision framework object recognition
-        performVisionObjectRecognition(on: pixelBuffer) { visionDetections in
+        performVisionObjectRecognition(on: pixelBuffer, returnAllDetections: returnAllDetections) { visionDetections in
             // Return Vision detections (no fallback)
             completion(visionDetections)
         }
     }
     
     // Performs Vision framework object recognition
-    private func performVisionObjectRecognition(on pixelBuffer: CVPixelBuffer, completion: @escaping ([VisionDetection]) -> Void) {
+    private func performVisionObjectRecognition(on pixelBuffer: CVPixelBuffer, returnAllDetections: Bool, completion: @escaping ([VisionDetection]) -> Void) {
         var objectDetectionCompleted = false
         var classificationCompleted = false
         var faceDetectionCompleted = false
         var objectDetections: [VisionDetection] = []
         var classificationDetections: [VisionDetection] = []
         var faceDetections: [VisionDetection] = []
+        
+        print("🔍 Starting Vision recognition with returnAllDetections: \(returnAllDetections)")
         
         // Try animal detection first (provides bounding boxes)
         let animalDetectionRequest = VNRecognizeAnimalsRequest { [weak self] request, error in
@@ -85,15 +87,21 @@ struct VisionDetection {
             if let error = error {
                 print("Vision animal detection error: \(error)")
             } else if let results = request.results as? [VNRecognizedObjectObservation] {
-                objectDetections = self.processVisionObjectResults(results)
-                print("Vision animal detection found \(objectDetections.count) objects")
+                print("🐾 Raw animal detection results: \(results.count) observations")
+                for (index, obs) in results.enumerated() {
+                    print("   \(index + 1). \(obs.labels.first?.identifier ?? "unknown") - confidence: \(obs.confidence)")
+                }
+                objectDetections = self.processVisionObjectResults(results, returnAllDetections: returnAllDetections)
+                print("🐾 Processed animal detections: \(objectDetections.count) objects")
             }
             
             // If all requests are done, return the best result
             if classificationCompleted && faceDetectionCompleted {
                 let finalDetections = self.getBestDetections(objectDetections: objectDetections, 
                                                            classificationDetections: classificationDetections, 
-                                                           faceDetections: faceDetections)
+                                                           faceDetections: faceDetections,
+                                                           returnAllDetections: returnAllDetections)
+                print("🎯 Final detections to return: \(finalDetections.count) objects")
                 completion(finalDetections)
             }
         }
@@ -107,15 +115,21 @@ struct VisionDetection {
             if let error = error {
                 print("Vision classification error: \(error)")
             } else if let results = request.results as? [VNClassificationObservation] {
-                classificationDetections = self.processVisionClassificationResults(results)
-                print("Vision classification found \(classificationDetections.count) objects")
+                print("📋 Raw classification results: \(results.count) observations")
+                for (index, obs) in results.prefix(5).enumerated() {
+                    print("   \(index + 1). \(obs.identifier) - confidence: \(obs.confidence)")
+                }
+                classificationDetections = self.processVisionClassificationResults(results, returnAllDetections: returnAllDetections)
+                print("📋 Processed classification detections: \(classificationDetections.count) objects")
             }
             
             // If all requests are done, return the best result
             if objectDetectionCompleted && faceDetectionCompleted {
                 let finalDetections = self.getBestDetections(objectDetections: objectDetections, 
                                                            classificationDetections: classificationDetections, 
-                                                           faceDetections: faceDetections)
+                                                           faceDetections: faceDetections,
+                                                           returnAllDetections: returnAllDetections)
+                print("🎯 Final detections to return: \(finalDetections.count) objects")
                 completion(finalDetections)
             }
         }
@@ -129,15 +143,21 @@ struct VisionDetection {
             if let error = error {
                 print("Vision face detection error: \(error)")
             } else if let results = request.results as? [VNFaceObservation] {
-                faceDetections = self.processVisionFaceResults(results)
-                print("Vision face detection found \(faceDetections.count) objects")
+                print("👤 Raw face detection results: \(results.count) observations")
+                for (index, obs) in results.enumerated() {
+                    print("   \(index + 1). Face - confidence: \(obs.confidence)")
+                }
+                faceDetections = self.processVisionFaceResults(results, returnAllDetections: returnAllDetections)
+                print("👤 Processed face detections: \(faceDetections.count) objects")
             }
             
             // If all requests are done, return the best result
             if objectDetectionCompleted && classificationCompleted {
                 let finalDetections = self.getBestDetections(objectDetections: objectDetections, 
                                                            classificationDetections: classificationDetections, 
-                                                           faceDetections: faceDetections)
+                                                           faceDetections: faceDetections,
+                                                           returnAllDetections: returnAllDetections)
+                print("🎯 Final detections to return: \(finalDetections.count) objects")
                 completion(finalDetections)
             }
         }
@@ -159,12 +179,20 @@ struct VisionDetection {
 
     
     // Processes Vision object detection results (provides bounding boxes)
-    private func processVisionObjectResults(_ results: [VNRecognizedObjectObservation]) -> [VisionDetection] {
+    private func processVisionObjectResults(_ results: [VNRecognizedObjectObservation], returnAllDetections: Bool) -> [VisionDetection] {
         var detections: [VisionDetection] = []
+        print("🔍 Vision: Processing \(results.count) raw observations")
+        
+        // Use lower threshold for manual scans to get more objects
+        let effectiveThreshold = returnAllDetections ? 0.2 : objectConfidenceThreshold
+        print("🎯 Using confidence threshold: \(effectiveThreshold) (\(returnAllDetections ? "MANUAL SCAN" : "REGULAR"))")
         
         for observation in results {
             // Filter by confidence
-            guard observation.confidence >= objectConfidenceThreshold else { continue }
+            guard observation.confidence >= effectiveThreshold else { 
+                print("❌ Filtered out \(observation.labels.first?.identifier ?? "unknown") - confidence \(observation.confidence) < threshold \(effectiveThreshold)")
+                continue 
+            }
             
             // Get the top label
             guard let topLabelObservation = observation.labels.first else { continue }
@@ -172,8 +200,11 @@ struct VisionDetection {
             let identifier = topLabelObservation.identifier
             let confidence = topLabelObservation.confidence
             
-            // Filter out generic labels
-            guard !isGenericLabel(identifier) else { continue }
+            // Filter out generic labels (but not during manual scans)
+            if !returnAllDetections && isGenericLabel(identifier) { 
+                print("❌ Filtered out generic label: \(identifier)")
+                continue 
+            }
             
             // Create detection with actual bounding box
             let boundingBox = observation.boundingBox
@@ -184,17 +215,19 @@ struct VisionDetection {
             )
             
             detections.append(detection)
+            print("✅ Added detection: \(cleanupLabel(identifier)) (\(Int(confidence * 100))%)")
         }
         
         // Sort by confidence and return only the most confident detection
         let sortedDetections = detections.sorted { $0.confidence > $1.confidence }
+        print("📊 Vision: \(detections.count) valid detections, returning \(returnAllDetections ? "ALL" : "TOP 1")")
         
         // Return only the top detection (most confident)
-        return sortedDetections.prefix(1).map { $0 }
+        return returnAllDetections ? sortedDetections : sortedDetections.prefix(1).map { $0 }
     }
     
     // Processes Vision face detection results
-    private func processVisionFaceResults(_ results: [VNFaceObservation]) -> [VisionDetection] {
+    private func processVisionFaceResults(_ results: [VNFaceObservation], returnAllDetections: Bool) -> [VisionDetection] {
         var detections: [VisionDetection] = []
         
         for observation in results {
@@ -216,11 +249,11 @@ struct VisionDetection {
         let sortedDetections = detections.sorted { $0.confidence > $1.confidence }
         
         // Return only the top detection (most confident)
-        return sortedDetections.prefix(1).map { $0 }
+        return returnAllDetections ? sortedDetections : sortedDetections.prefix(1).map { $0 }
     }
     
     // Processes Vision classification results (fallback when object recognition fails)
-    private func processVisionClassificationResults(_ results: [VNClassificationObservation]) -> [VisionDetection] {
+    private func processVisionClassificationResults(_ results: [VNClassificationObservation], returnAllDetections: Bool) -> [VisionDetection] {
         var detections: [VisionDetection] = []
         
         for observation in results {
@@ -230,8 +263,8 @@ struct VisionDetection {
             let identifier = observation.identifier
             let confidence = observation.confidence
             
-            // Filter out generic labels
-            guard !isGenericLabel(identifier) else { continue }
+            // Filter out generic labels (but not during manual scans)
+            if !returnAllDetections && isGenericLabel(identifier) { continue }
             
             // Create detection with estimated bounding box (center of frame)
             let boundingBox = CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2)
@@ -248,23 +281,24 @@ struct VisionDetection {
         let sortedDetections = detections.sorted { $0.confidence > $1.confidence }
         
         // Return only the top detection (most confident)
-        return sortedDetections.prefix(1).map { $0 }
+        return returnAllDetections ? sortedDetections : sortedDetections.prefix(1).map { $0 }
     }
     
     // Gets the best detection from all available methods
     private func getBestDetections(objectDetections: [VisionDetection], 
                                  classificationDetections: [VisionDetection], 
-                                 faceDetections: [VisionDetection]) -> [VisionDetection] {
+                                 faceDetections: [VisionDetection],
+                                 returnAllDetections: Bool) -> [VisionDetection] {
         // Priority order: object detection > face detection > classification
         if !objectDetections.isEmpty {
-            print("Vision: Using object detection")
-            return objectDetections
+            print("Vision: Using object detection (\(objectDetections.count) objects)")
+            return returnAllDetections ? objectDetections : [objectDetections.first!]
         } else if !faceDetections.isEmpty {
-            print("Vision: Using face detection")
-            return faceDetections
+            print("Vision: Using face detection (\(faceDetections.count) objects)")
+            return returnAllDetections ? faceDetections : [faceDetections.first!]
         } else if !classificationDetections.isEmpty {
-            print("Vision: Using classification detection")
-            return classificationDetections
+            print("Vision: Using classification detection (\(classificationDetections.count) objects)")
+            return returnAllDetections ? classificationDetections : [classificationDetections.first!]
         } else {
             print("Vision: No objects detected")
             return []

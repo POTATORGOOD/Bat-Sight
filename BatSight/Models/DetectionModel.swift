@@ -14,6 +14,9 @@ class DetectionState: ObservableObject {
     @Published var currentDetectionText: String = "No objects detected"
     @Published var speechEnabled: Bool = true
     
+    // Add a published property to request a manual scan with all objects
+    @Published var requestManualFullScan: Bool = false
+    
     // Speech manager for audio feedback
     private let speechManager = SpeechManager()
     
@@ -21,11 +24,19 @@ class DetectionState: ObservableObject {
     private var previousObjects: [DetectedObject] = []
     
     // Track manual scan state
-    private var isManualScanInProgress: Bool = false
+    private var _isManualScanInProgress: Bool = false
+    
+    // Public getter for manual scan state
+    var isManualScanInProgress: Bool {
+        return _isManualScanInProgress
+    }
     
     // Speech delay mechanism
     private var lastAnnouncementTime: Date = Date.distantPast
     private let minimumAnnouncementInterval: TimeInterval = 4.0 // 4 seconds between announcements
+    
+    // Add a property to store objects from manual scan
+    private var manualScanObjects: [DetectedObject] = []
     
     // Updates the current detection state and triggers speech announcements if objects change significantly
     func updateDetections(_ objects: [DetectedObject]) {
@@ -146,26 +157,43 @@ class DetectionState: ObservableObject {
         stopSpeech()
         
         // Set manual scan in progress
-        isManualScanInProgress = true
+        _isManualScanInProgress = true
         
-        // Announce that we're scanning
-        speechManager.announceManualScan()
+        // Clear previous manual scan objects
+        manualScanObjects = []
         
-        // Wait a moment for the announcement, then announce current detections
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        // Request a full scan for the next frame
+        requestManualFullScan = true
+        
+        print("🔍 Manual scan started - requestManualFullScan set to true")
+        
+        // Announce that we're scanning the environment
+        speechManager.announceCustomMessage("Scanning environment")
+        
+        // Wait exactly 2 seconds for detection to complete, then analyze
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             // End manual scan
-            self.isManualScanInProgress = false
+            self._isManualScanInProgress = false
             
-            if self.detectedObjects.isEmpty {
-                self.speechManager.announceNoObjects()
+            // Reset the manual scan request
+            self.requestManualFullScan = false
+            
+            print("🔍 Manual scan ended - requestManualFullScan set to false")
+            print("🔍 Manual scan objects collected: \(self.manualScanObjects.count)")
+            
+            // Use the objects that were detected during manual scan
+            let objectsToAnalyze = self.manualScanObjects.isEmpty ? self.detectedObjects : self.manualScanObjects
+            
+            if objectsToAnalyze.isEmpty {
+                self.speechManager.announceCustomMessage("No objects detected. Try looking around.")
             } else {
                 // Analyze objects to infer location
-                let locationContext = self.inferLocationFromObjects(self.detectedObjects)
+                let locationContext = self.inferLocationFromObjects(objectsToAnalyze)
                 
                 // Create a descriptive announcement
                 let environmentDescription: String
                 if locationContext == "unknown location" {
-                    environmentDescription = "I'm not sure where you are. Please look around so I can better understand your surroundings."
+                    environmentDescription = "Objects detected, but location unknown."
                 } else {
                     environmentDescription = "You appear to be in a \(locationContext)."
                 }
@@ -174,12 +202,20 @@ class DetectionState: ObservableObject {
         }
     }
     
+    // Method to store objects from manual scan
+    func storeManualScanObjects(_ objects: [DetectedObject]) {
+        if _isManualScanInProgress {
+            manualScanObjects = objects
+            print("🔍 Stored \(objects.count) objects for manual scan")
+        }
+    }
+    
     // Analyzes detected objects to infer the user's location context
     private func inferLocationFromObjects(_ objects: [DetectedObject]) -> String {
         let objectTypes = Set(objects.map { $0.identifier.lowercased() })
         
         // Bedroom indicators
-        let bedroomObjects = ["bed", "pillow", "mattress", "nightstand", "lamp", "dresser", "wardrobe", "closet", "blanket", "sheet", "bedding", "curtain", "clothing"]
+        let bedroomObjects = ["bed", "pillow", "mattress", "nightstand", "lamp", "dresser", "wardrobe", "closet", "blanket", "sheet", "bedding", "curtain", "clothing", "electric fan"]
         let bedroomMatches = objectTypes.intersection(bedroomObjects)
         
         // Kitchen indicators

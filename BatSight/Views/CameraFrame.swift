@@ -37,7 +37,6 @@ struct CameraFrame: View {
                             .font(.custom("times", size: 30))
                             .foregroundStyle(Color(red: (241/255), green: (246/255), blue: (255/255)))
                             .multilineTextAlignment(.center)
-                            .lineLimit(2)
                     }
                     Spacer()
                     

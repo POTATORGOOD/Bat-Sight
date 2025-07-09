@@ -10,6 +10,7 @@ import SwiftUI
 import AVFoundation
 import Vision
 import CoreML
+import Combine // Added for Combine subscriptions
 
 // Main camera interface that displays the camera feed with object detection overlay and manages camera hardware
 struct CameraView: View {
@@ -118,6 +119,10 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
     private var lastDetectionTime: Date = Date()
     private var positionCounter: Int = 0
     
+    // Add a property to track if a manual full scan is requested
+    private var manualFullScanRequested: Bool = false
+    // Add a cancellables set for Combine subscriptions
+    private var cancellables = Set<AnyCancellable>()
 
     
     init(detectionState: DetectionState) {
@@ -126,6 +131,13 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
         self.videoOutput = AVCaptureVideoDataOutput()
         super.init()
         setupCamera()
+        // Observe the manual scan request
+        detectionState.$requestManualFullScan.sink { [weak self] requested in
+            guard let self = self else { return }
+            if requested {
+                self.manualFullScanRequested = true
+            }
+        }.store(in: &cancellables)
     }
     
     // Sets up Vision model for object detection
@@ -228,67 +240,103 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
     
     // Main object detection pipeline that uses Vision for detection and YOLO for distance estimation
     private func performCoreMLObjectDetection(pixelBuffer: CVPixelBuffer) {
-        // Use Vision framework for object detection
-        visionModelManager.performDetection(on: pixelBuffer) { [weak self] visionDetections in
+        let useAllObjects = manualFullScanRequested
+        print("🔍 Detection mode: \(useAllObjects ? "MANUAL SCAN (all objects)" : "REGULAR (top object only)")")
+        print("🔍 manualFullScanRequested: \(manualFullScanRequested)")
+        print("🔍 detectionState.requestManualFullScan: \(detectionState.requestManualFullScan)")
+        
+        visionModelManager.performDetection(on: pixelBuffer, returnAllDetections: useAllObjects) { [weak self] visionDetections in
             guard let self = self else { return }
+            print("📊 Vision returned \(visionDetections.count) detections")
             
             // If no Vision detections, clear
             if visionDetections.isEmpty {
                 DispatchQueue.main.async {
                     self.detectionState.updateDetections([])
+                    // Reset manual scan flag if it was set
+                    if self.manualFullScanRequested {
+                        self.manualFullScanRequested = false
+                        self.detectionState.requestManualFullScan = false
+                    }
                 }
                 return
             }
             
-            // Get the top Vision detection
-            let topVisionDetection = visionDetections.sorted(by: { $0.confidence > $1.confidence }).first!
+            // If manual scan, use all objects; otherwise, use only the top detection
+            let detectionsToProcess: [VisionDetection]
+            if useAllObjects {
+                detectionsToProcess = visionDetections
+                print("🎯 Manual scan: Processing ALL \(detectionsToProcess.count) objects")
+            } else {
+                detectionsToProcess = [visionDetections.sorted(by: { $0.confidence > $1.confidence }).first!]
+                print("🎯 Regular detection: Processing TOP 1 object")
+            }
             
-            // Use YOLO to get bounding boxes for distance estimation
+            // For each detection, estimate distance using YOLO (optional: could parallelize)
             let yoloModelManager = YOLOv8ModelManager()
             yoloModelManager.extractBoundingBoxesForDistance(on: pixelBuffer) { [weak self] yoloBoundingBoxes in
                 guard let self = self else { return }
+                var detectedObjects: [DetectedObject] = []
                 
-                // Find the best matching YOLO bounding box for the Vision detection
-                let bestYOLOBox = yoloBoundingBoxes.max(by: { yoloBox1, yoloBox2 in
-                    self.iou(yoloBox1, topVisionDetection.boundingBox) < self.iou(yoloBox2, topVisionDetection.boundingBox)
-                })
-                
-                // Estimate distance from YOLO bounding box size (if available)
-                var distance: Float? = nil
-                var distanceCategory: String? = nil
-                
-                if let yoloBox = bestYOLOBox {
-                    let boxArea = yoloBox.width * yoloBox.height
-                    if boxArea >= 0.15 {
-                        distance = 0.5
-                        distanceCategory = "very close"
-                    } else if boxArea >= 0.08 {
-                        distance = 1.0
-                        distanceCategory = "close"
-                    } else if boxArea >= 0.04 {
-                        distance = 1.5
-                        distanceCategory = "medium"
-                    } else if boxArea >= 0.02 {
-                        distance = 2.5
-                        distanceCategory = "far"
-                    } else if boxArea > 0 {
-                        distance = 4.0
-                        distanceCategory = "very far"
+                for visionDetection in detectionsToProcess {
+                    // Find the best matching YOLO bounding box for the Vision detection
+                    let bestYOLOBox = yoloBoundingBoxes.max(by: { yoloBox1, yoloBox2 in
+                        self.iou(yoloBox1, visionDetection.boundingBox) < self.iou(yoloBox2, visionDetection.boundingBox)
+                    })
+                    
+                    // Estimate distance from YOLO bounding box size (if available)
+                    var distance: Float? = nil
+                    var distanceCategory: String? = nil
+                    
+                    if let yoloBox = bestYOLOBox {
+                        let boxArea = yoloBox.width * yoloBox.height
+                        if boxArea >= 0.15 {
+                            distance = 0.5
+                            distanceCategory = "very close"
+                        } else if boxArea >= 0.08 {
+                            distance = 1.0
+                            distanceCategory = "close"
+                        } else if boxArea >= 0.04 {
+                            distance = 1.5
+                            distanceCategory = "medium"
+                        } else if boxArea >= 0.02 {
+                            distance = 2.5
+                            distanceCategory = "far"
+                        } else if boxArea > 0 {
+                            distance = 4.0
+                            distanceCategory = "very far"
+                        }
                     }
+                    
+                    // Create DetectedObject with Vision label, YOLO bounding box for direction, and YOLO distance
+                    let boundingBoxForDirection = bestYOLOBox ?? visionDetection.boundingBox
+                    let detectedObject = DetectedObject(
+                        identifier: visionDetection.identifier,
+                        confidence: visionDetection.confidence,
+                        boundingBox: boundingBoxForDirection,
+                        distance: distance,
+                        distanceCategory: distanceCategory
+                    )
+                    detectedObjects.append(detectedObject)
                 }
                 
-                // Create DetectedObject with Vision label, YOLO bounding box for direction, and YOLO distance
-                let boundingBoxForDirection = bestYOLOBox ?? topVisionDetection.boundingBox
-                let detectedObject = DetectedObject(
-                    identifier: topVisionDetection.identifier,
-                    confidence: topVisionDetection.confidence,
-                    boundingBox: boundingBoxForDirection,
-                    distance: distance,
-                    distanceCategory: distanceCategory
-                )
+                print("✅ Final detected objects: \(detectedObjects.count)")
+                for (index, obj) in detectedObjects.enumerated() {
+                    print("   \(index + 1). \(obj.identifier) (\(Int(obj.confidence * 100))%) - \(obj.position)")
+                }
                 
                 DispatchQueue.main.async {
-                    self.detectionState.updateDetections([detectedObject])
+                    self.detectionState.updateDetections(detectedObjects)
+                    // Store objects for manual scan if in progress
+                    if self.manualFullScanRequested {
+                        self.detectionState.storeManualScanObjects(detectedObjects)
+                        // Don't reset the flag here - let DetectionModel handle it
+                    }
+                    // Only reset the flag if it was set but we're not in manual scan mode
+                    if self.manualFullScanRequested && !self.detectionState.isManualScanInProgress {
+                        self.manualFullScanRequested = false
+                        self.detectionState.requestManualFullScan = false
+                    }
                 }
             }
         }
