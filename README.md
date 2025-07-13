@@ -1,6 +1,6 @@
 # BatSight 🦇👁️
 
-A sophisticated iOS app that provides real-time object detection and navigation assistance using computer vision. BatSight helps users identify objects in their environment and provides audio feedback about their location and type.
+A sophisticated iOS app that provides real-time object detection, text recognition, and navigation assistance using computer vision. BatSight helps visually impaired users identify objects and read text in their environment with comprehensive audio feedback.
 
 ## Features
 
@@ -9,6 +9,14 @@ A sophisticated iOS app that provides real-time object detection and navigation 
 - **YOLOv8 integration ready** for enhanced detection capabilities
 - **Single object focus** for clear, uncluttered detection
 - **Confidence-based filtering** to ensure accurate detections
+- **Distance estimation** with 5 categories (very close to very far)
+
+### 📖 Text Recognition (OCR)
+- **Real-time text recognition** using Vision framework
+- **Intelligent text filtering** to remove OCR artifacts
+- **Autocorrect functionality** for common OCR errors
+- **Position-aware text reading** (left, center, right)
+- **Speech synthesis** for recognized text
 
 ### 📍 Position Detection
 - **Three-zone positioning**: Left, Center, Right
@@ -16,22 +24,30 @@ A sophisticated iOS app that provides real-time object detection and navigation 
 - **Distance filtering** to focus on nearby objects
 - **Real-time position updates** as objects move
 
+### 🧠 Intelligent Location Detection
+- **"Where Am I?" feature** that analyzes detected objects
+- **Environment inference** (kitchen, bedroom, office, street, etc.)
+- **Smart fallback responses** when location can't be determined
+- **2-second environment scan** for comprehensive analysis
+
 ### 🔊 Audio Feedback
 - **Speech synthesis** for hands-free operation
 - **Intelligent announcements** that avoid repetition
 - **Position-aware descriptions** (e.g., "Person on the left")
 - **Confidence level reporting** for user awareness
+- **Custom messages** for navigation and location detection
 
 ### 🎛️ User Controls
+- **Dual-mode interface**: Object Detection and Text Reader
 - **Speech toggle** to enable/disable audio feedback
-- **Camera mode activation** with haptic feedback
+- **Haptic feedback** for all interactions
 - **Real-time detection display** with confidence percentages
 - **Accessibility-focused design** for inclusive use
 
 ## Technology Stack
 
 - **SwiftUI** - Modern iOS UI framework
-- **Vision Framework** - Apple's computer vision framework
+- **Vision Framework** - Apple's computer vision framework for object and text detection
 - **Core ML** - Machine learning integration (YOLOv8 ready)
 - **AVFoundation** - Camera and audio handling
 - **Speech Framework** - Text-to-speech capabilities
@@ -46,14 +62,30 @@ Central state manager that handles:
 - Speech announcements
 - UI state management
 - Change detection to avoid duplicate announcements
+- Manual scan coordination
+- Location inference
+
+#### `VisionModelManager`
+Primary object detection with:
+- Multi-method detection (animal, classification, face)
+- Generic label filtering
+- Confidence threshold management
+- Fallback detection methods
 
 #### `YOLOv8ModelManager`
 Advanced object detection with:
 - YOLOv8 model integration (when available)
 - Fallback to Vision framework
 - Non-maximum suppression (NMS)
+- Distance estimation based on bounding box size
 - Generic label filtering
-- Confidence threshold management
+
+#### `TextReaderManager`
+Text recognition system with:
+- Vision framework OCR integration
+- Intelligent text filtering and autocorrect
+- Position detection for recognized text
+- Real-time text overlay
 
 #### `DirectionCalculator`
 Computer vision utility for:
@@ -68,6 +100,13 @@ Audio feedback system with:
 - Position-aware announcements
 - Confidence level reporting
 - Voice control feedback
+- Custom messages for location detection
+
+#### `HapticManager`
+Tactile feedback system with:
+- Light, medium, and heavy impact levels
+- Consistent haptic feedback for all interactions
+- Accessibility-focused tactile response
 
 ## Installation
 
@@ -92,15 +131,18 @@ For enhanced object detection:
 
 ### Basic Operation
 1. **Launch the app** and grant camera permissions
-2. **Point your camera** at objects in your environment
-3. **Listen for audio feedback** describing detected objects
-4. **Use the speech toggle** to enable/disable audio
+2. **Choose your mode**: Object Detection or Text Reader
+3. **Point your camera** at objects or text in your environment
+4. **Listen for audio feedback** describing detected objects or text
+5. **Use the speech toggle** to enable/disable audio
 
 ### Advanced Features
+- **"Where Am I?" button**: Analyzes environment and announces location
 - **Distance filtering**: Only nearby objects are detected
 - **Position awareness**: Objects are described by location
 - **Confidence reporting**: Detection accuracy is communicated
-- **Haptic feedback**: Physical feedback for mode changes
+- **Haptic feedback**: Physical feedback for all interactions
+- **Text recognition**: Read printed or displayed text aloud
 
 ## Development
 
@@ -109,12 +151,13 @@ For enhanced object detection:
 BatSight/
 ├── Models/
 │   ├── DetectionModel.swift      # Core detection state
+│   ├── VisionModelManager.swift  # Vision framework integration
 │   └── YOLOv8Model.swift         # YOLOv8 integration
 ├── Views/
 │   ├── ContentView.swift         # Main app interface
 │   ├── CameraView.swift          # Camera and detection UI
-│   ├── CameraFrame.swift         # Camera preview
-│   └── ModeSelector.swift        # Mode selection
+│   ├── ObjectDetectionFrame.swift # Object detection interface
+│   └── TextReaderFrame.swift     # Text recognition interface
 ├── Utilities/
 │   ├── DirectionCalculator.swift # Position detection
 │   ├── SpeechManager.swift       # Audio feedback
@@ -128,6 +171,7 @@ BatSight/
 - **ObservableObject** for state management
 - **Protocol-oriented programming** for extensibility
 - **Dependency injection** for testability
+- **Accessibility-first design** principles
 
 ## Contributing
 
