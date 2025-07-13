@@ -1,4 +1,4 @@
-# BatSight 🦇👁️
+# BatSight
 
 A sophisticated iOS app that provides real-time object detection, text recognition, and navigation assistance using computer vision. BatSight helps visually impaired users identify objects and read text in their environment with comprehensive audio feedback.
 
