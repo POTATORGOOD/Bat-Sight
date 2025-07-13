@@ -163,9 +163,7 @@ struct VisionDetection {
         }
         
         // Configure the requests for better accuracy
-        animalDetectionRequest.usesCPUOnly = false
-        classificationRequest.usesCPUOnly = false
-        faceDetectionRequest.usesCPUOnly = false
+        // Note: usesCPUOnly is deprecated in iOS 17.0+ and no longer needed
         
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
         do {
@@ -354,7 +352,7 @@ struct VisionDetection {
             }
             completion(self.cleanupLabel(top.identifier), top.confidence)
         }
-        request.usesCPUOnly = false
+        // Note: usesCPUOnly is deprecated in iOS 17.0+ and no longer needed
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
         do {
             try handler.perform([request])

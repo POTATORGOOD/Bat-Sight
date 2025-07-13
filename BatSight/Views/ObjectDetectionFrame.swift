@@ -1,5 +1,5 @@
 //
-//  CameraFrame.swift
+//  ObjectDetectionFrame.swift
 //  BatSight
 //
 //  Created by Arnav Nair on 6/23/25.
@@ -9,8 +9,8 @@ import Foundation
 import SwiftUI
 import AVFoundation
 
-// Camera interface wrapper that provides navigation controls, detection display, and speech toggle with audio feedback
-struct CameraFrame: View {
+// Object detection interface wrapper that provides navigation controls, detection display, and speech toggle with audio feedback
+struct ObjectDetectionFrame: View {
     @EnvironmentObject var detectionState: DetectionState
     @State private var navigateToMain = false
     
@@ -82,6 +82,13 @@ struct CameraFrame: View {
                     // Provide haptic feedback
                     HapticManager.shared.mediumImpact()
                     
+                    // Check if speech is enabled before starting manual scan
+                    if !detectionState.speechEnabled {
+                        // Remind user that voice is muted
+                        detectionState.announceCustomMessage("Voice is muted")
+                        return
+                    }
+                    
                     // Trigger manual object detection scan
                     detectionState.performManualScan()
                 }) {
@@ -116,6 +123,6 @@ struct CameraFrame: View {
 }
 
 #Preview {
-    CameraFrame()
+    ObjectDetectionFrame()
         .environmentObject(DetectionState())
 }

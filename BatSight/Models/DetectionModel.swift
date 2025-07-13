@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 
 // Central state manager that handles object detection updates, speech announcements, and UI state
+@MainActor
 class DetectionState: ObservableObject {
     @Published var detectedObjects: [DetectedObject] = []
     @Published var currentDetectionText: String = "No objects detected"
@@ -151,6 +152,24 @@ class DetectionState: ObservableObject {
         speechManager.announceCameraModeDeactivated()
     }
     
+    // Announces text reader mode activation (always announces navigation events, regardless of speech enabled setting)
+    func announceTextReaderModeActivated() {
+        // Always announce navigation events, regardless of speech enabled setting
+        speechManager.announceTextReaderModeActivated()
+    }
+    
+    // Announces text reader mode deactivation (always announces navigation events, regardless of speech enabled setting)
+    func announceTextReaderModeDeactivated() {
+        // Always announce navigation events, regardless of speech enabled setting
+        speechManager.announceTextReaderModeDeactivated()
+    }
+    
+    // Announces a custom message (bypasses cooldown for immediate feedback)
+    func announceCustomMessage(_ message: String) {
+        // Always announce custom messages, regardless of speech enabled setting
+        speechManager.announceCustomMessage(message)
+    }
+    
     // Performs a manual scan and announces the current environment
     func performManualScan() {
         // Stop any current speech
@@ -215,11 +234,11 @@ class DetectionState: ObservableObject {
         let objectTypes = Set(objects.map { $0.identifier.lowercased() })
         
         // Bedroom indicators
-        let bedroomObjects = ["bed", "pillow", "mattress", "nightstand", "lamp", "dresser", "wardrobe", "closet", "blanket", "sheet", "bedding", "curtain", "clothing", "electric fan"]
+        let bedroomObjects = ["bed", "pillow", "mattress", "nightstand", "lamp", "dresser", "wardrobe", "closet", "blanket", "sheet", "bedding", "curtain", "clothing", "electric fan", "interior room"]
         let bedroomMatches = objectTypes.intersection(bedroomObjects)
         
         // Kitchen indicators
-        let kitchenObjects = ["refrigerator", "fridge", "stove", "oven", "microwave", "sink", "dishwasher", "cabinet", "counter", "table", "chair", "spoon", "fork", "knife", "plate", "bowl", "cup", "mug", "pot", "pan", "kettle", "coffee maker", "blender", "toaster"]
+        let kitchenObjects = ["refrigerator", "fridge", "stove", "oven", "microwave", "sink", "dishwasher", "counter", "table", "chair", "spoon", "fork", "knife", "plate", "bowl", "cup", "mug", "pot", "pan", "kettle", "coffee maker", "blender", "toaster"]
         let kitchenMatches = objectTypes.intersection(kitchenObjects)
         
         // Living room indicators
@@ -231,7 +250,7 @@ class DetectionState: ObservableObject {
         let bathroomMatches = objectTypes.intersection(bathroomObjects)
         
         // Office indicators
-        let officeObjects = ["desk", "computer", "laptop", "monitor", "keyboard", "mouse", "chair", "bookshelf", "printer", "paper", "pen", "pencil", "notebook", "file", "folder"]
+        let officeObjects = ["desk", "computer", "laptop", "monitor", "keyboard", "mouse", "chair", "bookshelf", "printer", "paper", "pen", "pencil", "notebook", "file", "folder", "consumer electronics"]
         let officeMatches = objectTypes.intersection(officeObjects)
         
         // Street/outdoor indicators

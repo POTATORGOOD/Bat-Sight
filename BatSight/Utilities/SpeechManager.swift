@@ -9,6 +9,7 @@ import Foundation
 import AVFoundation
 
 // Text-to-speech engine that handles all audio announcements with cooldown management and speech configuration
+@MainActor
 class SpeechManager: NSObject, ObservableObject {
     private let synthesizer = AVSpeechSynthesizer()
     private var isSpeaking = false
@@ -226,6 +227,50 @@ class SpeechManager: NSObject, ObservableObject {
         print("Speech: \(announcement)")
     }
     
+    // Announces text reader mode activation (bypasses cooldown for immediate feedback)
+    func announceTextReaderModeActivated() {
+        // Bypass cooldown for mode announcements - always speak immediately
+        if isSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+        
+        let announcement = "Text Reader Activated"
+        
+        let utterance = AVSpeechUtterance(string: announcement)
+        utterance.rate = speechRate
+        utterance.pitchMultiplier = speechPitch
+        utterance.volume = speechVolume
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        
+        synthesizer.speak(utterance)
+        isSpeaking = true
+        lastSpeechTime = Date()
+        
+        print("Speech: \(announcement)")
+    }
+    
+    // Announces text reader mode deactivation (bypasses cooldown for immediate feedback)
+    func announceTextReaderModeDeactivated() {
+        // Bypass cooldown for mode announcements - always speak immediately
+        if isSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+        
+        let announcement = "Text Reader Deactivated"
+        
+        let utterance = AVSpeechUtterance(string: announcement)
+        utterance.rate = speechRate
+        utterance.pitchMultiplier = speechPitch
+        utterance.volume = speechVolume
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        
+        synthesizer.speak(utterance)
+        isSpeaking = true
+        lastSpeechTime = Date()
+        
+        print("Speech: \(announcement)")
+    }
+    
     // Announces when voice is muted (bypasses cooldown for immediate feedback)
     func announceVoiceMuted() {
         // Bypass cooldown for mute announcements - always speak immediately
@@ -317,17 +362,23 @@ class SpeechManager: NSObject, ObservableObject {
 
 // Monitors speech synthesis state and updates internal flags when speech starts, finishes, or is cancelled
 extension SpeechManager: AVSpeechSynthesizerDelegate {
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        isSpeaking = false
-        print("Speech finished: \(utterance.speechString)")
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            isSpeaking = false
+            print("Speech finished: \(utterance.speechString)")
+        }
     }
     
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        isSpeaking = false
-        print("Speech cancelled: \(utterance.speechString)")
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            isSpeaking = false
+            print("Speech cancelled: \(utterance.speechString)")
+        }
     }
     
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        print("Speech started: \(utterance.speechString)")
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            print("Speech started: \(utterance.speechString)")
+        }
     }
 }

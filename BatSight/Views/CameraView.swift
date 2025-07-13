@@ -131,13 +131,15 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
         self.videoOutput = AVCaptureVideoDataOutput()
         super.init()
         setupCamera()
-        // Observe the manual scan request
-        detectionState.$requestManualFullScan.sink { [weak self] requested in
-            guard let self = self else { return }
-            if requested {
-                self.manualFullScanRequested = true
-            }
-        }.store(in: &cancellables)
+        // Observe the manual scan request on main thread
+        Task { @MainActor in
+            detectionState.$requestManualFullScan.sink { [weak self] requested in
+                guard let self = self else { return }
+                if requested {
+                    self.manualFullScanRequested = true
+                }
+            }.store(in: &cancellables)
+        }
     }
     
     // Sets up Vision model for object detection
@@ -243,7 +245,11 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
         let useAllObjects = manualFullScanRequested
         print("🔍 Detection mode: \(useAllObjects ? "MANUAL SCAN (all objects)" : "REGULAR (top object only)")")
         print("🔍 manualFullScanRequested: \(manualFullScanRequested)")
-        print("🔍 detectionState.requestManualFullScan: \(detectionState.requestManualFullScan)")
+        
+        // Access main actor property on main thread
+        Task { @MainActor in
+            print("🔍 detectionState.requestManualFullScan: \(detectionState.requestManualFullScan)")
+        }
         
         visionModelManager.performDetection(on: pixelBuffer, returnAllDetections: useAllObjects) { [weak self] visionDetections in
             guard let self = self else { return }
@@ -256,7 +262,9 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
                     // Reset manual scan flag if it was set
                     if self.manualFullScanRequested {
                         self.manualFullScanRequested = false
-                        self.detectionState.requestManualFullScan = false
+                        Task { @MainActor in
+                            self.detectionState.requestManualFullScan = false
+                        }
                     }
                 }
                 return
@@ -335,7 +343,9 @@ class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleB
                     // Only reset the flag if it was set but we're not in manual scan mode
                     if self.manualFullScanRequested && !self.detectionState.isManualScanInProgress {
                         self.manualFullScanRequested = false
-                        self.detectionState.requestManualFullScan = false
+                        Task { @MainActor in
+                            self.detectionState.requestManualFullScan = false
+                        }
                     }
                 }
             }

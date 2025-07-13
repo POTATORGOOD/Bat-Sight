@@ -16,6 +16,12 @@ struct BatSightApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(detectionState)
+                .onAppear {
+                    // Welcome message when app first opens
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        detectionState.announceCustomMessage("Welcome to BatSight. Your visual assistant is ready.")
+                    }
+                }
         }
     }
 }
