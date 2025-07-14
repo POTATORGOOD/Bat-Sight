@@ -19,7 +19,7 @@ struct BatSightApp: App {
                 .onAppear {
                     // Welcome message when app first opens
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        detectionState.announceCustomMessage("Welcome to BatSight. Your visual assistant is ready.")
+                        detectionState.announceCustomMessage("Welcome to BatSight. Your visual assistant is ready. Click the bottom of the screen for help using the app. Disclaimer: Don't trust Bat Sight completely as AI can make mistakes and it is essential to use your own judgment and other resources for safety.")
                     }
                 }
         }
