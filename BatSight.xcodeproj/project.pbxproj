@@ -419,10 +419,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"BatSight/Preview Content\"";
+				DEVELOPMENT_TEAM = W2UTJR7F27;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "\"This app needs camera access to provide live camera view\"";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "\"This app needs microphone access to listen to the user\"";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "\"This app uses speech recognition to allow you to speak your name during onboarding\"";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -461,10 +464,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"BatSight/Preview Content\"";
+				DEVELOPMENT_TEAM = W2UTJR7F27;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "\"This app needs camera access to provide live camera view\"";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "\"This app needs microphone access to listen to the user\"";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "\"This app uses speech recognition to allow you to speak your name during onboarding\"";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

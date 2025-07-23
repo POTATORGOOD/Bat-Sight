@@ -11,17 +11,18 @@ import SwiftUI
 @main
 struct BatSightApp: App {
     @StateObject private var detectionState = DetectionState()
+    @StateObject private var onboardingState = OnboardingState()
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            StartView()
                 .environmentObject(detectionState)
-                .onAppear {
-                    // Welcome message when app first opens
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        detectionState.announceCustomMessage("Welcome to BatSight. Your visual assistant is ready. Click the bottom of the screen for help using the app. Disclaimer: Don't trust Bat Sight completely as AI can make mistakes and it is essential to use your own judgment and other resources for safety.")
-                    }
-                }
+                .environmentObject(onboardingState)
         }
     }
+}
+
+// Notification for onboarding completion
+extension Notification.Name {
+    static let onboardingCompleted = Notification.Name("onboardingCompleted")
 }

@@ -10,8 +10,10 @@ import SwiftUI
 // Main menu screen with the Bat Sight logo that navigates to camera mode when tapped
 struct ContentView: View {
     @EnvironmentObject var detectionState: DetectionState
+    @EnvironmentObject var onboardingState: OnboardingState
     @State private var navigateToCamera = false
     @State private var navigateToTextReader = false
+    @State private var showingResetAlert = false
     
     var body: some View {
         NavigationStack {
@@ -61,6 +63,9 @@ struct ContentView: View {
                         .opacity(0.8)
                         .clipShape(Capsule())
                 }
+                .onLongPressGesture {
+                    showingResetAlert = true
+                }
                 .padding(.bottom, -200)
                 Spacer()
             }
@@ -72,12 +77,27 @@ struct ContentView: View {
             .navigationDestination(isPresented: $navigateToTextReader) {
                 TextReaderFrame()
             }
+            .alert("Reset Onboarding", isPresented: $showingResetAlert) {
+                Button("Reset") {
+                    onboardingState.resetOnboarding()
+                    // Restart app to show onboarding
+                    exit(0)
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This will reset the onboarding process. The app will restart.")
+            }
         }
         .navigationBarBackButtonHidden(true)
+        .onAppear {
+            // Announce mode selector activation
+            detectionState.announceCustomMessage("Mode selector activated. Tap the left button for text reading mode or the right button for object detection mode.")
+        }
     }
 }
 
 #Preview {
     ContentView()
         .environmentObject(DetectionState())
+        .environmentObject(OnboardingState())
 }
