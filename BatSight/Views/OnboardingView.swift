@@ -37,10 +37,21 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 // Logo and welcome text at the top
                 VStack(spacing: 20) {
-                    Image("Bat Sight")
-                        .resizable()
-                        .frame(width: 120, height: 120)
-                        .padding(.top, 60)
+                    ZStack(alignment: .topTrailing) {
+                        Image("Bat Sight")
+                            .resizable()
+                            .frame(width: 120, height: 120)
+                            .padding(.top, 60)
+                        
+                        Text("BETA")
+                            .font(.system(size: 5, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 3)
+                            .background(Color.gray.opacity(0.7))
+                            .clipShape(Capsule())
+                            .offset(x: -10, y: 140)
+                    }
                     
                     Text("Welcome to BatSight \(nameVerified ? username : "")")
                         .font(.system(size: 32, weight: .bold))

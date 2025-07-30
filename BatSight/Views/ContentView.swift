@@ -18,11 +18,22 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             VStack {
-                Image("Bat Sight")
-                    .resizable()
-                    .frame(width: 200, height: 200)
-                    .padding(.top, -20)
-                    .padding(.bottom, -50)
+                ZStack(alignment: .topTrailing) {
+                    Image("Bat Sight")
+                        .resizable()
+                        .frame(width: 200, height: 200)
+                        .padding(.top, -20)
+                        .padding(.bottom, -50)
+                    
+                    Text("BETA")
+                        .font(.system(size: 5, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 4)
+                        .background(Color.gray.opacity(0.7))
+                        .clipShape(Capsule())
+                        .offset(x: -25, y: 120)
+                }
                 Spacer()
                 HStack(spacing: 25) {
                     Button(action: {
@@ -91,7 +102,7 @@ struct ContentView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear {
             // Announce mode selector activation
-            detectionState.announceCustomMessage("Mode selector activated. Tap the left button for text reading mode or the right button for object detection mode.")
+            detectionState.announceCustomMessage("Mode selector activated. Tap the left button for text reading mode or the right button for object detection mode. There is also a help button at the bottom of the screen.")
         }
     }
 }

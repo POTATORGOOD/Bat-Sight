@@ -27,9 +27,20 @@ struct StartView: View {
                         Spacer()
                         
                         VStack(spacing: 20) {
-                            Image("Bat Sight")
-                                .resizable()
-                                .frame(width: 200, height: 200)
+                            ZStack(alignment: .topTrailing) {
+                                Image("Bat Sight")
+                                    .resizable()
+                                    .frame(width: 200, height: 200)
+                                
+                                Text("BETA")
+                                    .font(.system(size: 5, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 4)
+                                    .background(Color.gray.opacity(0.7))
+                                    .clipShape(Capsule())
+                                    .offset(x: -28, y: 140)
+                            }
                             
                             Text("Tap to begin")
                                 .font(.system(size: 18, weight: .medium))
