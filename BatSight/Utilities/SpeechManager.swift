@@ -14,8 +14,8 @@ class SpeechManager: NSObject, ObservableObject {
     private let synthesizer = AVSpeechSynthesizer()
     private var isSpeaking = false
     
-    // Speech configuration
-    private let speechRate: Float = 0.5 // Slower rate for clarity
+    // Speech configuration - slower rate for visually impaired users
+    private let speechRate: Float = 0.35 // Slower rate for better comprehension
     private let speechPitch: Float = 1.0
     private let speechVolume: Float = 0.8
     

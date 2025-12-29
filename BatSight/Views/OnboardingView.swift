@@ -148,7 +148,7 @@ struct OnboardingView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(red: (45/255), green: (5/255), blue: (102/255)))
+            .background(Color(red: (30/255), green: (0/255), blue: (80/255)))
             .navigationBarHidden(true)
             .navigationDestination(isPresented: $navigateToMainApp) {
                 ContentView()

@@ -86,7 +86,7 @@ struct StartView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(red: (45/255), green: (5/255), blue: (102/255)))
+            .background(Color(red: (30/255), green: (0/255), blue: (80/255)))
             .navigationBarHidden(true)
             .navigationDestination(isPresented: $navigateToOnboarding) {
                 OnboardingView()
@@ -104,11 +104,11 @@ struct StartView: View {
                 // Load username from UserDefaults
                 username = UserDefaults.standard.string(forKey: "userName") ?? ""
                 
-                // Announce welcome message at the start
+                // Announce welcome message and instructions at the start
                 if onboardingState.hasCompletedOnboarding && !username.isEmpty {
-                    detectionState.announceCustomMessage("Welcome to BatSight \(username). Your visual assistant is ready to help you navigate the world.")
+                    detectionState.announceCustomMessage("Welcome to BatSight \(username). Your visual assistant is ready to help you navigate the world. Tap anywhere on the screen to begin.")
                 } else {
-                    detectionState.announceCustomMessage("Welcome to BatSight. Your visual assistant is ready to help you navigate the world.")
+                    detectionState.announceCustomMessage("Welcome to BatSight. Your visual assistant is ready to help you navigate the world. Tap anywhere on the screen to begin.")
                 }
             }
         }

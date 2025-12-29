@@ -45,6 +45,8 @@ class DetectionState: ObservableObject {
         
         if objects.isEmpty {
             currentDetectionText = "No objects detected"
+            // Clear previous objects when no detections to prevent stale state
+            previousObjects = []
             // Don't announce anything when no objects are detected
         } else {
             // Create a formatted string for display (without confidence percentage)
@@ -59,6 +61,7 @@ class DetectionState: ObservableObject {
             }
         }
         
+        // Update previous objects after processing
         previousObjects = objects
     }
     
@@ -93,6 +96,11 @@ class DetectionState: ObservableObject {
             return true
         }
         
+        // If no previous objects, this is a new detection
+        if previousObjects.isEmpty {
+            return true
+        }
+        
         // Check for position changes first (most important for navigation)
         for (index, newObject) in newObjects.enumerated() {
             if index < previousObjects.count {
@@ -104,17 +112,45 @@ class DetectionState: ObservableObject {
             }
         }
         
-        // Check for object type changes
+        // Check for object type changes with confidence threshold
         for (index, newObject) in newObjects.enumerated() {
             if index < previousObjects.count {
                 let previousObject = previousObjects[index]
+                // Only consider it a change if identifier is different AND confidence is significantly different
                 if newObject.identifier != previousObject.identifier {
+                    return true
+                }
+                // Also check if confidence changed significantly (more than 20%)
+                let confidenceDiff = abs(newObject.confidence - previousObject.confidence)
+                if confidenceDiff > 0.2 {
+                    return true
+                }
+            }
+        }
+        
+        // Check if bounding box has moved significantly (more than 10% of frame)
+        for (index, newObject) in newObjects.enumerated() {
+            if index < previousObjects.count {
+                let previousObject = previousObjects[index]
+                let centerXDiff = abs(newObject.boundingBox.midX - previousObject.boundingBox.midX)
+                let centerYDiff = abs(newObject.boundingBox.midY - previousObject.boundingBox.midY)
+                // If object moved more than 10% of frame width/height, it's a significant change
+                if centerXDiff > 0.1 || centerYDiff > 0.1 {
                     return true
                 }
             }
         }
         
         return false
+    }
+    
+    // Resets detection state - useful when changing rooms or contexts
+    func resetDetectionState() {
+        previousObjects = []
+        detectedObjects = []
+        currentDetectionText = "No objects detected"
+        lastAnnouncementTime = Date.distantPast
+        print("🔄 Detection state reset")
     }
     
     // Stops any current speech

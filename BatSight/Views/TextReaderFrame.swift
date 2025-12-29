@@ -16,6 +16,7 @@ struct TextReaderFrame: View {
     @State private var navigateToMain = false
     @State private var detectedText: String = "No text detected"
     @State private var isReadingText: Bool = false
+    @State private var hasDetectedText: Bool = false
     
     var body: some View {
         NavigationStack {
@@ -69,7 +70,7 @@ struct TextReaderFrame: View {
                     
                     // Text reader view with frame
                     VStack {
-                        TextReaderView(detectionState: detectionState, detectedText: $detectedText, isReadingText: $isReadingText)
+                        TextReaderView(detectionState: detectionState, detectedText: $detectedText, isReadingText: $isReadingText, hasDetectedText: $hasDetectedText)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                             .overlay(
@@ -81,34 +82,59 @@ struct TextReaderFrame: View {
                     .padding()
                 }
                 
-                Button(action: {
-                    // Provide haptic feedback
-                    HapticManager.shared.mediumImpact()
-                    
-                    // Check if speech is enabled before starting text reading
-                    if !detectionState.speechEnabled {
-                        // Remind user that voice is muted
-                        detectionState.announceCustomMessage("Voice is muted")
-                        return
+                HStack(spacing: 15) {
+                    // Clear button - only show when text is detected
+                    if hasDetectedText && detectedText != "No text detected" {
+                        Button(action: {
+                            // Provide haptic feedback
+                            HapticManager.shared.lightImpact()
+                            
+                            // Clear detected text
+                            detectedText = "No text detected"
+                            hasDetectedText = false
+                            
+                            // Announce clearing
+                            if detectionState.speechEnabled {
+                                detectionState.announceCustomMessage("Text cleared")
+                            }
+                        }) {
+                            Text("Clear")
+                                .font(.custom("times", size: 40))
+                                .foregroundStyle(Color.white)
+                                .frame(maxWidth: .infinity, maxHeight: 75)
+                                .background(Color(red: (200/255), green: (50/255), blue: (50/255)))
+                                .clipShape(Capsule())
+                        }
                     }
                     
-                    // Trigger text reading scan
-                    isReadingText = true
-                }) {
-                    Text("Read Text")
-                        .font(.custom("times", size: 50))
-                        .foregroundStyle(Color(red: (241/255), green: (246/255), blue: (255/255)))
-                        .frame(maxWidth: .infinity , maxHeight: 75)
-                        .background(Color(red: (85/255), green: (5/255), blue: (200/255)))
-                        .opacity(0.8)
-                        .clipShape(Capsule())
+                    Button(action: {
+                        // Provide haptic feedback
+                        HapticManager.shared.mediumImpact()
+                        
+                        // Check if speech is enabled before starting text reading
+                        if !detectionState.speechEnabled {
+                            // Remind user that voice is muted
+                            detectionState.announceCustomMessage("Voice is muted")
+                            return
+                        }
+                        
+                        // Trigger text reading scan
+                        isReadingText = true
+                    }) {
+                        Text("Read Text")
+                            .font(.custom("times", size: 50))
+                            .foregroundStyle(Color.white)
+                            .frame(maxWidth: .infinity , maxHeight: 75)
+                            .background(Color(red: (120/255), green: (50/255), blue: (255/255)))
+                            .clipShape(Capsule())
+                    }
                 }
-                .padding(.leading, 30)
-                .padding(.trailing, 30)
+                .padding(.horizontal, 30)
+                .padding(.bottom, 20)
                 Spacer()
             }
         .frame(maxWidth: .infinity , maxHeight: .infinity)
-        .background(Color(red: (45/255), green: (5/255), blue: (102/255)))
+        .background(Color(red: (30/255), green: (0/255), blue: (80/255)))
         .navigationDestination(isPresented: $navigateToMain) {
             ContentView()
         }
@@ -130,6 +156,7 @@ struct TextReaderView: View {
     @ObservedObject var detectionState: DetectionState
     @Binding var detectedText: String
     @Binding var isReadingText: Bool
+    @Binding var hasDetectedText: Bool
     @StateObject private var textReaderManager = TextReaderManager()
     @State private var detectedTextRegions: [TextRegion] = []
     
@@ -204,6 +231,7 @@ struct TextReaderView: View {
                         if !recognizedText.isEmpty {
                             detectedText = recognizedText
                             detectedTextRegions = regions
+                            hasDetectedText = true
                             // Announce the detected text if speech is enabled
                             if detectionState.speechEnabled {
                                 detectionState.announceCustomMessage("Detected text: \(recognizedText)")
@@ -211,6 +239,7 @@ struct TextReaderView: View {
                         } else {
                             detectedText = "No text detected"
                             detectedTextRegions = []
+                            hasDetectedText = false
                             if detectionState.speechEnabled {
                                 detectionState.announceCustomMessage("No text found")
                             }

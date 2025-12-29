@@ -59,6 +59,7 @@ struct ContentView: View {
                             .frame(width: 185, height: 185)
                     }
                 }
+                .padding(.horizontal, 20)
                Spacer()
                 Button(action: {
                     // Provide haptic feedback
@@ -68,20 +69,23 @@ struct ContentView: View {
                 }) {
                     Text("Help")
                         .font(.custom("times", size: 50))
-                        .foregroundStyle(Color(red: (241/255), green: (246/255), blue: (255/255)))
+                        .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity , maxHeight: 150)
-                        .background(Color(red: (85/255), green: (5/255), blue: (200/255)))
-                        .opacity(0.8)
+                        .background(Color(red: (120/255), green: (50/255), blue: (255/255)))
                         .clipShape(Capsule())
                 }
                 .onLongPressGesture {
                     showingResetAlert = true
                 }
-                .padding(.bottom, -200)
+                .padding(.horizontal, 30)
+                .padding(.bottom, 20)
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(red: (45/255), green: (5/255), blue: (102/255)))
+            .background(Color(red: (30/255), green: (0/255), blue: (80/255)))
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 0)
+            }
             .navigationDestination(isPresented: $navigateToCamera) {
                 ObjectDetectionFrame()
             }

@@ -57,11 +57,11 @@ struct ObjectDetectionFrame: View {
                     .padding(.trailing, 10)
                 }
                 .frame(maxWidth: .infinity , maxHeight: 75)
-                .background(Color(red: (45/255), green: (5/255), blue: (102/255)))
+                .background(Color(red: (30/255), green: (0/255), blue: (80/255)))
                 .padding(.bottom, -10)
                 ZStack {
                     // Background
-                    Color(red: (45/255), green: (5/255), blue: (102/255))
+                    Color(red: (30/255), green: (0/255), blue: (80/255))
                         .ignoresSafeArea()
                     
                     // Camera view with frame
@@ -94,24 +94,25 @@ struct ObjectDetectionFrame: View {
                 }) {
                     Text("Where Am I?")
                         .font(.custom("times", size: 50))
-                        .foregroundStyle(Color(red: (241/255), green: (246/255), blue: (255/255)))
+                        .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity , maxHeight: 75)
-                        .background(Color(red: (85/255), green: (5/255), blue: (200/255)))
-                        .opacity(0.8)
+                        .background(Color(red: (120/255), green: (50/255), blue: (255/255)))
                         .clipShape(Capsule())
                 }
-                .padding(.leading, 30)
-                .padding(.trailing, 30)
+                .padding(.horizontal, 30)
+                .padding(.bottom, 20)
                 Spacer()
             }
         .frame(maxWidth: .infinity , maxHeight: .infinity)
-        .background(Color(red: (45/255), green: (5/255), blue: (102/255)))
+        .background(Color(red: (30/255), green: (0/255), blue: (80/255)))
         .navigationDestination(isPresented: $navigateToMain) {
             ContentView()
         }
     }
     .navigationBarBackButtonHidden(true)
     .onAppear {
+        // Reset detection state when entering to prevent stale detections
+        detectionState.resetDetectionState()
         // Announce camera mode activation (always announce navigation events)
         detectionState.announceCameraModeActivated()
     }
